@@ -12,28 +12,54 @@ SECTIONS {
 	. = 0x80000400;
 
 	.text : {
+		#KEEP(*(.text._start))
+		#KEEP(*(.text.entry))
+		#KEEP(*(.text))
+
 		_text_start = .;
-		KEEP(*(.text._start))
-		KEEP(*(.text.entry))
-		KEEP(*(.text))
+		*(.boot)
+		. = ALIGN(16);
+		*(.text)
 		*(.text*)
 		_text_end = .;
 	} :main
 
-	#. = 0x80001000;
+	. = ALIGN(16);
+	. = . + 0x100;
 
 	.rodata : {
 		*(.rodata*)
 	}
 
+	. = ALIGN(16);
+
 	.data : { *(.data*) }
+
+	. = ALIGN(16);
 
 	.bss : {
 		*(.bss*)
 		*(COMMON)
 	}
 
-	/DISCARD/ : { *(MIPS.abiflags) *(.pdr) }
+	. = ALIGN(16);
+	_bss_end = .;
+
+	. = ALIGN(0x100);
+
+	.stack : {
+		_stack_bottom = .;
+		*(.stack*)
+		_stack_top = .;
+	}
+
+	/DISCARD/ : {
+		*(.MIPS.abiflags)
+		*(.reginfo)
+		*(.gnu.*)
+		*(.comment)
+		*(.mdebug*)
+	}
 }
 
 PHDRS {

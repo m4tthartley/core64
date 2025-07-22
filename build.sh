@@ -14,13 +14,13 @@ n64tool=/opt/libdragon/bin/n64tool
 n64crc=/opt/libdragon/bin/chksum64
 n64elfcompress=/opt/libdragon/bin/n64elfcompress
 
-flags="-c -g3 -nostdlib -nostartfiles -ffreestanding -nodefaultlibs -fno-builtin-memset"
+flags="-c -g3 -G 0 -nostdlib -nostartfiles -ffreestanding -nodefaultlibs -fno-builtin-memset"
 linkFlags="-T linker.ld -nostdlib"
 
 $compile $flags main.c -o ./build/main.o
 $compile $flags boot.s -o ./build/boot.o
 
-$link $linkFlags ./build/main.o ./build/boot.o -o ./build/main.elf
+$link $linkFlags ./build/main.o ./build/boot.o -o ./build/main.elf -Map ./build/build.map
 
 # $objcopy -O binary ./build/main.elf ./build/main.bin
 
@@ -41,8 +41,8 @@ echo "\ndone."
 
 # $link 
 
-/opt/libdragon/bin/mips64-elf-objdump -f ./build/main.elf
-/opt/libdragon/bin/mips64-elf-readelf ./build/main.elf -l
+# /opt/libdragon/bin/mips64-elf-objdump -d -h -f ./build/main.elf
+# /opt/libdragon/bin/mips64-elf-readelf ./build/main.elf -l
 
 # echo "\n---";
 # /opt/libdragon/bin/mips64-elf-objdump -f ../libdragon/examples/test/build/test.elf

@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// typedef unsigned long size_t;
+
 void* memset(void* dest, int value, size_t size)
 {
 	void* result = dest;
@@ -16,6 +18,26 @@ void* memset(void* dest, int value, size_t size)
 	}
 
 	return result;
+}
+
+void* memcpy(void* dest, const void* src, size_t num)
+{
+	for (int i=0; i<num; ++i) {
+		((uint8_t*)dest)[i] = ((uint8_t*)src)[i];
+	}
+
+	return dest;
+}
+
+float* CopyFloats(float* out, float* in, size_t num)
+{
+	for (int i=0; i<num; ++i) {
+		// float a = out[i] * in[i];
+		// out[i] = a;
+		out[i] = in[i];
+	}
+
+	return out;
 }
 
 #define VI_BASE 0xA4400000
@@ -35,6 +57,21 @@ void* memset(void* dest, int value, size_t size)
 #define XSCALE (void*)(VI_BASE+0x2C)
 #define YSCALE (void*)(VI_BASE+0x30)
 
+#define victrl		0 /* 0000 */
+#define viorigin	1 /* 0004 */
+#define viwidth		2 /* 0008 */
+#define viintr		3 /* 000C */
+#define vicurrent	4 /* 0010 */
+#define viburst		5 /* 0014 */
+#define vivsync		6 /* 0018 */
+#define vihsync		7 /* 001C */
+#define visyncleap	8 /* 0020 */
+#define vihvideo	9 /* 0024 */
+#define vivvideo	10 /* 0028 */
+#define vivburst	11 /* 002C */
+#define vixscale	12 /* 0030 */
+#define viyscale	13 /* 0034 */
+
 #define FRAMEBUFFER 0xA0200000
 
 void WaitForVideoSync()
@@ -48,6 +85,57 @@ void SetVI(void* loc, uint32_t value)
 	*(volatile uint32_t*)loc = value;
 }
 
+uint32_t randState32 = 2463534242; // TODO: If I set this to zero it crashes
+uint64_t pcgState = 0x853C49E6748FEA9BULL;
+uint64_t pcgInc = 0xDA3E39CB94B95BDBULL;
+
+uint32_t RandXorShift32()
+{
+	if (!randState32) {
+		randState32 = 2463534242;
+	}
+
+	// uint32_t r = randState32;
+	randState32 ^= randState32 << 13;
+	randState32 ^= randState32 << 17;
+	randState32 ^= randState32 << 5;
+	return randState32;
+}
+
+uint32_t RandLCG()
+{
+	if (!randState32) {
+		randState32 = 1;
+	}
+	randState32 = 1664525 * randState32 + 1013904223;
+	return randState32;
+}
+
+uint32_t RandPCG()
+{
+	uint64_t oldState = pcgState;
+	pcgState = oldState * 6364136223846793005ULL + (pcgInc | 1);
+	uint32_t xor = ((oldState >> 18u) ^ oldState) >> 27u;
+	uint32_t rot = oldState >> 59u;
+	return (xor >> rot) | (xor << ((-rot) & 31));
+}
+
+uint32_t Rand32()
+{
+	return RandXorShift32();
+}
+
+uint32_t Rand32Range(uint32_t min, uint32_t max)
+{
+	uint32_t range = max - min;
+	return min + (Rand32() % range);
+}
+
+// int32_t Rand32RangeSigned(int32_t min, int32_t max)
+// {
+
+// }
+
 int main()
 {
 	// lol we don't even have printf
@@ -60,19 +148,54 @@ int main()
 	// 	fb[i] = (float)i;
 	// }
 
-	SetVI(CONTROL, 0b11 | (0b0011 << 12));
-	SetVI(ORIGIN, FRAMEBUFFER);
-	SetVI(WIDTH, 320*2);
-	SetVI(INTR, 0x200);
-	SetVI(CURSOR, 0);
-	SetVI(BURST, 0x03E52239);
-	SetVI(VSYNC, 0x0000020D /*240*/);
-	SetVI(HSYNC, 0x00000C15 /*3093*/);
-	SetVI(LEAP, 0x0C150C15 /*(320*2)<<16 | (320*2)*/);
-	SetVI(HSTART, /*0x002501FF*/ /*(108<<16) | 748*/ 0x006c02ec);
-	SetVI(VSTART, /*0x0000020D*/ /*(0x025<<16) | 0x1FF*/ 0x002501ff);
-	SetVI(XSCALE, 0x00000200);
-	SetVI(YSCALE, 0x00000400);
+	// SetVI(CONTROL, 0b11 | (0b0011 << 12));
+	// SetVI(ORIGIN, FRAMEBUFFER);
+	// SetVI(WIDTH, 320*2);
+	// SetVI(INTR, 0x200);
+	// SetVI(CURSOR, 0);
+	// SetVI(BURST, 0x03E52239);
+	// SetVI(VSYNC, 0x0000020D /*240*/);
+	// SetVI(HSYNC, 0x00000C15 /*3093*/);
+	// SetVI(LEAP, 0x0C150C15 /*(320*2)<<16 | (320*2)*/);
+	// SetVI(HSTART, /*0x002501FF*/ /*(108<<16) | 748*/ 0x006c02ec);
+	// SetVI(VSTART, /*0x0000020D*/ /*(0x025<<16) | 0x1FF*/ 0x002501ff);
+	// SetVI(XSCALE, 0x00000200);
+	// SetVI(YSCALE, 0x00000400);
+
+	// uint32_t viregs[] = {
+	// 	0x00000000, 0x00000000, 0x00000000, 0x00000002,
+	// 	0x00000000, 0x03E52239, 0x0000020D, 0x00000C15,
+	// 	0x0C150C15, 0x006C02EC, 0x002501FF, 0x000E0204,
+	// 	0x00000000, 0x00000000,
+	// };
+
+	// // viregs[viorigin] = FRAMEBUFFER;
+	// // viregs[viwidth] = 320*2;
+	// // viregs[vixscale] = 0x00000200;
+	// // viregs[viyscale] = 0x00000400;
+	// // viregs[victrl] = 0b11 ;//| (0b0011 << 12);
+
+	uint32_t* viregs = (uint32_t*)VI_BASE;
+
+	viregs[victrl] = 0b11;
+	viregs[viorigin] = FRAMEBUFFER;
+	viregs[viwidth] = 320*1;
+	viregs[viintr] = 0x200;
+	viregs[vicurrent] = 0;
+	viregs[viburst] = 0x03E52239;
+	viregs[vivsync] = 0x0000020D;
+	viregs[vihsync] = 0x00000C15;
+	viregs[visyncleap] = 0x0C150C15;
+	viregs[vihvideo] = 0x006c02ec;
+	viregs[vivvideo] = 0x002501ff;
+	viregs[vivburst] = 0;
+	viregs[vixscale] = 0x00000200;
+	viregs[viyscale] = 0x00000400;
+
+	// NOTE: This only works if I'm setting them directly like this ^
+	// if I do it witht the memcpy it doesn't work, look into why
+
+	// memcpy((void*)VI_BASE, viregs, sizeof(viregs));
 
 	uint16_t color = 0;
 	uint16_t green = 0;
@@ -106,12 +229,35 @@ int main()
 	// 	fb[y*320+0] = 31;
 	// }
 
+	uint8_t r = 0;
+	uint8_t g = 0;
+	uint8_t b = 0;
 	for (;;) {
 		// uint16_t c = (y & 0x1F) << 11;
 		for (int y=0; y<240; ++y) {
 			for (int x=0; x<320; ++x) {
-				fb[y*320+x] = (y & 1) ? 0xFFFFFFFF : 0;
-				// fb[y*320+x] = color;
+				// fb[y*320+x] = (y & 1) ? 0xFFFFFFFF : 0;
+
+				// fb[y*320+x] = (x*256/320)<<8 | (y*256/240)<< 24;
+				// fb[y*320+x] = c++;
+
+				// fb[y*320+x] = (b+=1)<<8 | (g+=2)<<16 | (r+=3)<<24;
+				// fb[y*320+x] = ((b+=1)%32) | ((g+=2)%32)<<5 | ((r+=4)%32)<<10;
+
+				// uint32_t r = randState32;
+				// r ^= r << 13;
+				// r ^= r << 17;
+				// r ^= r << 5;
+				// randState32 = r;
+				uint32_t r = Rand32();
+
+				// randState32 *= 1664525;
+
+				// randState32 = 1664525 * randState32 + 1013904223;
+
+				// uint16_t c = randState32 % 32;
+				// fb[y*320+x] = randState32 & 0xFFFF;
+				fb[y*320+x] = r;//(randState32 & 0x00FFFFFF) << 8;
 			}
 		}
 
@@ -123,4 +269,6 @@ int main()
 
 		WaitForVideoSync();
 	}
+
+	return 0;
 }

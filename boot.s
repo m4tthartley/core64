@@ -5,8 +5,11 @@
 
 #define sp $29
 
-.section .text._start
+.set noreorder
 .global _start
+.global _stack_top
+
+.section .boot
 
 _start:
 	la $29, _stack_top # setup the stack
@@ -17,6 +20,6 @@ _loop:
 	j _loop
 	nop
 
-.section .bss
-.space 0x1000
+.section .stack
+.space 0x4000
 _stack_top:
