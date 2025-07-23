@@ -3,6 +3,19 @@
 //  Copyright 2025 GiantJelly. All rights reserved.
 //
 
+/*
+	TODO
+	-	Separate ROM and RAM memory
+		data shouldn't be copied over to RAM automatically
+		as apparently that won't work on real hardware
+
+	- Setup and copy to RAM .sdata, .sbss, .rodata?
+	
+	- Set up $gp small data pointer
+
+	- Flush cache after copying data to RAM
+*/
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -85,7 +98,7 @@ void SetVI(void* loc, uint32_t value)
 	*(volatile uint32_t*)loc = value;
 }
 
-uint32_t randState32 = 2463534242; // TODO: If I set this to zero it crashes
+uint32_t randState32 = 0;//2463534242; // TODO: If I set this to zero it crashes
 uint64_t pcgState = 0x853C49E6748FEA9BULL;
 uint64_t pcgInc = 0xDA3E39CB94B95BDBULL;
 
@@ -95,7 +108,6 @@ uint32_t RandXorShift32()
 		randState32 = 2463534242;
 	}
 
-	// uint32_t r = randState32;
 	randState32 ^= randState32 << 13;
 	randState32 ^= randState32 << 17;
 	randState32 ^= randState32 << 5;
@@ -122,7 +134,7 @@ uint32_t RandPCG()
 
 uint32_t Rand32()
 {
-	return RandXorShift32();
+	return RandPCG();
 }
 
 uint32_t Rand32Range(uint32_t min, uint32_t max)
@@ -136,8 +148,26 @@ uint32_t Rand32Range(uint32_t min, uint32_t max)
 
 // }
 
+extern uint8_t __bss_start;
+extern uint8_t __bss_end;
+
+uint16_t clearColor = 196<<8;
+uint16_t clearColor2 = 31;
+uint16_t clearColor3 = 31;
+uint16_t clearColor4 = 31;
+uint8_t clearColor5 = 31;
+uint8_t clearColor6 = 31;
+uint8_t clearColor7 = 31;
+
 int main()
 {
+	// memset(&__bss_start, 0, &__bss_end-&__bss_start);
+	// memset(&pcgState, 0, &pcgInc-&pcgState);
+	// float x = 5;
+	// float y = 5;
+	// float z = 5;
+	// uint16_t w = 5;
+
 	// lol we don't even have printf
 	// printf("Hello N64 \n");
 
@@ -197,8 +227,8 @@ int main()
 
 	// memcpy((void*)VI_BASE, viregs, sizeof(viregs));
 
-	uint16_t color = 0;
-	uint16_t green = 0;
+	// uint16_t color = 0;
+	// uint16_t green = 0;
 
 	volatile uint32_t* fb = (void*)FRAMEBUFFER;
 
@@ -236,28 +266,14 @@ int main()
 		// uint16_t c = (y & 0x1F) << 11;
 		for (int y=0; y<240; ++y) {
 			for (int x=0; x<320; ++x) {
-				// fb[y*320+x] = (y & 1) ? 0xFFFFFFFF : 0;
-
-				// fb[y*320+x] = (x*256/320)<<8 | (y*256/240)<< 24;
-				// fb[y*320+x] = c++;
-
 				// fb[y*320+x] = (b+=1)<<8 | (g+=2)<<16 | (r+=3)<<24;
 				// fb[y*320+x] = ((b+=1)%32) | ((g+=2)%32)<<5 | ((r+=4)%32)<<10;
 
-				// uint32_t r = randState32;
-				// r ^= r << 13;
-				// r ^= r << 17;
-				// r ^= r << 5;
-				// randState32 = r;
 				uint32_t r = Rand32();
 
-				// randState32 *= 1664525;
-
-				// randState32 = 1664525 * randState32 + 1013904223;
-
-				// uint16_t c = randState32 % 32;
-				// fb[y*320+x] = randState32 & 0xFFFF;
-				fb[y*320+x] = r;//(randState32 & 0x00FFFFFF) << 8;
+				fb[y*320+x] = r;
+				// fb[y*320+x] = clearColor;
+				// ++clearColor;
 			}
 		}
 

@@ -27,25 +27,32 @@ SECTIONS {
 	. = ALIGN(16);
 	. = . + 0x100;
 
-	.rodata : {
-		*(.rodata*)
+	#.rodata : {
+	#	*(.rodata*)
+	#}
+
+	. = ALIGN(16);
+	__data_rom_start = LOADADDR(.data);
+
+	.data ALIGN(16) : {
+		__data_start = .;
+		*(.data*)
+		. = ALIGN(8);
+		__data_end = .;
 	}
 
 	. = ALIGN(16);
 
-	.data : { *(.data*) }
-
-	. = ALIGN(16);
-
-	.bss : {
+	.bss (NOLOAD) : {
+		PROVIDE(__bss_start = .);
 		*(.bss*)
 		*(COMMON)
+		PROVIDE(__bss_end = .);
 	}
 
 	. = ALIGN(16);
-	_bss_end = .;
-
-	. = ALIGN(0x100);
+	. = . + 0x400;
+	#. = ALIGN(0x100);
 
 	.stack : {
 		_stack_bottom = .;
