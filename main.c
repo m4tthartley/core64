@@ -19,78 +19,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// typedef unsigned long size_t;
+#include "util.c"
+#include "video.c"
 
-void* memset(void* dest, int value, size_t size)
-{
-	void* result = dest;
-	while (size) {
-		*(uint8_t*)dest = (uint8_t)value;
-		++dest;
-		--size;
-	}
-
-	return result;
-}
-
-void* CopyMemory(uint8_t* dest, const uint8_t* src, size_t num)
-{
-	// for (int i=0; i<num; ++i) {
-	// 	((uint8_t*)dest)[i] = ((uint8_t*)src)[i];
-	// }
-
-	while (num) {
-		*dest++ = *src++;
-		--num;
-	}
-
-	return dest;
-}
-
-float* CopyFloats(float* out, float* in, size_t num)
-{
-	for (int i=0; i<num; ++i) {
-		// float a = out[i] * in[i];
-		// out[i] = a;
-		out[i] = in[i];
-	}
-
-	return out;
-}
-
-#define VI_BASE 0xA4400000
-#define VI_CURSOR (VI_BASE + 0x10)
-
-#define CONTROL (void*)(VI_BASE+0x00)
-#define ORIGIN (void*)(VI_BASE+0x04)
-#define WIDTH (void*)(VI_BASE+0x08)
-#define INTR (void*)(VI_BASE+0x0C)
-#define CURSOR (void*)(VI_BASE+0x10)
-#define BURST (void*)(VI_BASE+0x14)
-#define VSYNC (void*)(VI_BASE+0x18)
-#define HSYNC (void*)(VI_BASE+0x1C)
-#define LEAP (void*)(VI_BASE+0x20)
-#define HSTART (void*)(VI_BASE+0x24)
-#define VSTART (void*)(VI_BASE+0x28)
-#define XSCALE (void*)(VI_BASE+0x2C)
-#define YSCALE (void*)(VI_BASE+0x30)
-
-#define victrl		0 /* 0000 */
-#define viorigin	1 /* 0004 */
-#define viwidth		2 /* 0008 */
-#define viintr		3 /* 000C */
-#define vicurrent	4 /* 0010 */
-#define viburst		5 /* 0014 */
-#define vivsync		6 /* 0018 */
-#define vihsync		7 /* 001C */
-#define visyncleap	8 /* 0020 */
-#define vihvideo	9 /* 0024 */
-#define vivvideo	10 /* 0028 */
-#define vivburst	11 /* 002C */
-#define vixscale	12 /* 0030 */
-#define viyscale	13 /* 0034 */
-
-#define FRAMEBUFFER 0xA0200000
 
 void WaitForVideoSync()
 {
@@ -248,30 +179,9 @@ int main()
 	// // viregs[viyscale] = 0x00000400;
 	// // viregs[victrl] = 0b11 ;//| (0b0011 << 12);
 
-	uint32_t* viregs = (uint32_t*)VI_BASE;
-	// uint32_t viregs[14];
+	InitDefaultVI();
 
-	viregs[victrl] = 0b11;
-	viregs[viorigin] = FRAMEBUFFER;
-	viregs[viwidth] = 320*1;
-	viregs[viintr] = 0x200;
-	viregs[vicurrent] = 0;
-	viregs[viburst] = 0x03E52239;
-	viregs[vivsync] = 0x0000020D;
-	viregs[vihsync] = 0x00000C15;
-	viregs[visyncleap] = 0x0C150C15;
-	viregs[vihvideo] = 0x006c02ec;
-	viregs[vivvideo] = 0x002501ff;
-	viregs[vivburst] = 0;
-	viregs[vixscale] = 0x00000200;
-	viregs[viyscale] = 0x00000400;
-
-	// NOTE: This only works if I'm setting them directly like this ^
-	// if I do it witht the memcpy it doesn't work, look into why
-
-	// CopyMemory((void*)VI_BASE, (uint8_t*)viregs, sizeof(viregs));
-
-	volatile uint32_t* fb = (void*)FRAMEBUFFER;
+	volatile uint16_t* fb = (void*)FRAMEBUFFER;
 
 	uint8_t r = 0;
 	uint8_t g = 0;
@@ -286,10 +196,10 @@ int main()
 		// 	}
 		// }
 
-		fb[10*320+10] = 0xFFFFFFFF;
-		fb[10*320+11] = 0xFF0000FF;
-		fb[10*320+12] = 0x00FF00FF;
-		fb[10*320+13] = 0x0000FFFF;
+		fb[10*320+10] = 0xFFFF;
+		fb[10*320+11] = 0xF0F0;
+		// fb[10*320+12] = 0x00FF00FF;
+		// fb[10*320+13] = 0x0000FFFF;
 
 		// for (int i=0; i<256; ++i) {
 		// 	fa[i] *= fb[i];
@@ -299,13 +209,24 @@ int main()
 		int y = 20;
 		for (int uvy=0; uvy<5; ++uvy) {
 			for (int uvx=0; uvx<5; ++uvx) {
-				if (font[3][uvy*5+uvx]) {
-					fb[(y+uvy)*320+(x+uvx)] = 0xFFFFFFFF;
+				if (font[0][uvy*5+uvx]) {
+					fb[(y+uvy)*320+(x+uvx)] = 0xFFFF;
 				} else {
-					fb[(y+uvy)*320+(x+uvx)] = 0xFF0000FF;
+					fb[(y+uvy)*320+(x+uvx)] = 0x0000;
 				}
 			}
 		}
+		// x = 20;
+		// y = 30;
+		// for (int uvy=0; uvy<5; ++uvy) {
+		// 	for (int uvx=0; uvx<5; ++uvx) {
+		// 		if (font[1][uvy*5+uvx]) {
+		// 			fb[(y+uvy)*320+(x+uvx)] = 0xFFFFFFFF;
+		// 		} else {
+		// 			fb[(y+uvy)*320+(x+uvx)] = 0x00000000;
+		// 		}
+		// 	}
+		// }
 
 		WaitForVideoSync();
 	}

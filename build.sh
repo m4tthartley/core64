@@ -14,7 +14,7 @@ n64tool=/opt/libdragon/bin/n64tool
 n64crc=/opt/libdragon/bin/chksum64
 n64elfcompress=/opt/libdragon/bin/n64elfcompress
 
-flags="-c -g3 -G 0 -MMD -nostdlib -nostartfiles -ffreestanding -nodefaultlibs -fno-builtin-memset"
+flags="-c -g3 -O2 -G 0 -MMD -nostdlib -nostartfiles -ffreestanding -nodefaultlibs -fno-builtin-memset"
 linkFlags="-T linker.ld -nostdlib"
 
 $compile $flags main.c -S -o ./build/main.s
