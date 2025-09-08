@@ -17,6 +17,7 @@ n64elfcompress=/opt/libdragon/bin/n64elfcompress
 flags="-c -g3 -G 0 -MMD -nostdlib -nostartfiles -ffreestanding -nodefaultlibs -fno-builtin-memset"
 linkFlags="-T linker.ld -nostdlib"
 
+$compile $flags main.c -S -o ./build/main.s
 $compile $flags main.c -o ./build/main.o
 $compile $flags boot.s -o ./build/boot.o
 

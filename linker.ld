@@ -27,9 +27,14 @@ SECTIONS {
 	. = ALIGN(16);
 	. = . + 0x100;
 
-	#.rodata : {
-	#	*(.rodata*)
-	#}
+	.rodata : {
+		*(.rdata)
+		*(.rodata)
+		*(.rodata*)
+		KEEP(*(keep.rodata.*))
+		*(.gnu.linkonce.r.*)
+		. = ALIGN(8);
+	}
 
 	. = ALIGN(16);
 	__data_rom_start = LOADADDR(.data);
@@ -39,6 +44,14 @@ SECTIONS {
 		*(.data*)
 		. = ALIGN(8);
 		__data_end = .;
+	}
+
+	.sdata : {
+		_gp = . + 0x8000;
+		*(.sdata)
+		*(.sdata.*)
+		*(.gnu.linkonce.s.*)
+		. = ALIGN(8);
 	}
 
 	. = ALIGN(16);

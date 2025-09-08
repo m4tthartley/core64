@@ -33,10 +33,15 @@ void* memset(void* dest, int value, size_t size)
 	return result;
 }
 
-void* memcpy(void* dest, const void* src, size_t num)
+void* CopyMemory(uint8_t* dest, const uint8_t* src, size_t num)
 {
-	for (int i=0; i<num; ++i) {
-		((uint8_t*)dest)[i] = ((uint8_t*)src)[i];
+	// for (int i=0; i<num; ++i) {
+	// 	((uint8_t*)dest)[i] = ((uint8_t*)src)[i];
+	// }
+
+	while (num) {
+		*dest++ = *src++;
+		--num;
 	}
 
 	return dest;
@@ -159,6 +164,44 @@ uint8_t clearColor5 = 31;
 uint8_t clearColor6 = 31;
 uint8_t clearColor7 = 31;
 
+uint8_t font[][25] = {
+	// {
+	// 	0,0,0,0,0,
+	// 	0,0,0,0,0,
+	// 	0,0,0,0,0,
+	// 	0,0,0,0,0,
+	// 	0,0,0,0,0,
+	// },
+	{
+		0,1,1,1,0,
+		1,0,0,0,1,
+		1,1,1,1,1,
+		1,0,0,0,1,
+		1,0,0,0,1,
+	},
+	{
+		1,1,1,1,0,
+		1,0,0,0,1,
+		1,0,0,1,0,
+		1,0,0,0,1,
+		1,1,1,1,0,
+	},
+	{
+		0,1,1,1,1,
+		1,0,0,0,0,
+		1,0,0,0,0,
+		1,0,0,0,0,
+		0,1,1,1,1,
+	},
+	{
+		0,1,0,1,0,
+		1,0,1,0,1,
+		0,1,0,1,0,
+		1,0,1,0,1,
+		0,1,0,1,0,
+	}
+};
+
 int main()
 {
 	// memset(&__bss_start, 0, &__bss_end-&__bss_start);
@@ -206,6 +249,7 @@ int main()
 	// // viregs[victrl] = 0b11 ;//| (0b0011 << 12);
 
 	uint32_t* viregs = (uint32_t*)VI_BASE;
+	// uint32_t viregs[14];
 
 	viregs[victrl] = 0b11;
 	viregs[viorigin] = FRAMEBUFFER;
@@ -225,63 +269,43 @@ int main()
 	// NOTE: This only works if I'm setting them directly like this ^
 	// if I do it witht the memcpy it doesn't work, look into why
 
-	// memcpy((void*)VI_BASE, viregs, sizeof(viregs));
-
-	// uint16_t color = 0;
-	// uint16_t green = 0;
+	// CopyMemory((void*)VI_BASE, (uint8_t*)viregs, sizeof(viregs));
 
 	volatile uint32_t* fb = (void*)FRAMEBUFFER;
-
-	// for (int y=0; y<240; ++y) {
-	// 	uint16_t c = 31;//(y & 0x1F) << 11;
-	// 	for (int x=0; x<320; x += 1) {
-	// 		fb[y*320+x] = color | (green<<5) | (y%31 << 11);
-	// 		if (!color) {
-	// 			color = 31;
-	// 		} else {
-	// 			color = 0;
-	// 		}
-	// 		// color += 1;
-	// 		++green;
-	// 		green = green % 63;
-	// 	}
-
-	// }
-
-	// fb[0] = 0xFFFF;
-	// fb[320 * 100] = 0xF800;
-	// fb[320 * 200] = 0xF800;
-	// fb[320 * 239] = 0xF800;
-	// fb[320 * 1] = 0xF800;
-	// fb[320 * 3] = 0xF800;
-
-	// for (int y=0; y<2; ++y) {
-	// 	fb[y*320+0] = 31;
-	// }
 
 	uint8_t r = 0;
 	uint8_t g = 0;
 	uint8_t b = 0;
 	for (;;) {
-		// uint16_t c = (y & 0x1F) << 11;
-		for (int y=0; y<240; ++y) {
-			for (int x=0; x<320; ++x) {
-				// fb[y*320+x] = (b+=1)<<8 | (g+=2)<<16 | (r+=3)<<24;
-				// fb[y*320+x] = ((b+=1)%32) | ((g+=2)%32)<<5 | ((r+=4)%32)<<10;
+		// for (int y=0; y<240; ++y) {
+		// 	for (int x=0; x<320; ++x) {
 
-				uint32_t r = Rand32();
+		// 		uint32_t r = Rand32();
 
-				fb[y*320+x] = r;
-				// fb[y*320+x] = clearColor;
-				// ++clearColor;
-			}
-		}
+		// 		fb[y*320+x] = r;
+		// 	}
+		// }
 
-		fb[0*320+10] = 0xFFFF;
+		fb[10*320+10] = 0xFFFFFFFF;
+		fb[10*320+11] = 0xFF0000FF;
+		fb[10*320+12] = 0x00FF00FF;
+		fb[10*320+13] = 0x0000FFFF;
 
 		// for (int i=0; i<256; ++i) {
 		// 	fa[i] *= fb[i];
 		// }
+
+		int x = 20;
+		int y = 20;
+		for (int uvy=0; uvy<5; ++uvy) {
+			for (int uvx=0; uvx<5; ++uvx) {
+				if (font[3][uvy*5+uvx]) {
+					fb[(y+uvy)*320+(x+uvx)] = 0xFFFFFFFF;
+				} else {
+					fb[(y+uvy)*320+(x+uvx)] = 0xFF0000FF;
+				}
+			}
+		}
 
 		WaitForVideoSync();
 	}
