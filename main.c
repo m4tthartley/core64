@@ -18,9 +18,12 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #include "util.c"
 #include "video.c"
+#include "resources/n64font.h"
+#include "resources/n64fontwide.h"
 
 
 void WaitForVideoSync()
@@ -95,7 +98,7 @@ uint8_t clearColor5 = 31;
 uint8_t clearColor6 = 31;
 uint8_t clearColor7 = 31;
 
-uint8_t font[][25] = {
+uint8_t font[][8*8] = {
 	// {
 	// 	0,0,0,0,0,
 	// 	0,0,0,0,0,
@@ -104,34 +107,82 @@ uint8_t font[][25] = {
 	// 	0,0,0,0,0,
 	// },
 	{
-		0,1,1,1,0,
-		1,0,0,0,1,
-		1,1,1,1,1,
-		1,0,0,0,1,
-		1,0,0,0,1,
+		0,1,1,1,0,0,0,0,
+		1,0,0,0,1,0,0,0,
+		1,0,0,0,1,0,0,0,
+		1,1,1,1,1,0,0,0,
+		1,0,0,0,1,0,0,0,
+		1,0,0,0,1,0,0,0,
+		1,0,0,0,1,0,0,0,
+		0,0,0,0,0,0,0,0,
 	},
 	{
-		1,1,1,1,0,
-		1,0,0,0,1,
-		1,0,0,1,0,
-		1,0,0,0,1,
-		1,1,1,1,0,
+		1,1,1,1,0,0,0,0,
+		1,0,0,0,1,0,0,0,
+		1,0,0,1,0,0,0,0,
+		1,0,0,0,1,0,0,0,
+		1,1,1,1,0,0,0,0,
+		0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,
 	},
 	{
-		0,1,1,1,1,
-		1,0,0,0,0,
-		1,0,0,0,0,
-		1,0,0,0,0,
-		0,1,1,1,1,
+		0,1,1,1,1,0,0,0,
+		1,0,0,0,0,0,0,0,
+		1,0,0,0,0,0,0,0,
+		1,0,0,0,0,0,0,0,
+		0,1,1,1,1,0,0,0,
+		0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,
 	},
 	{
-		0,1,0,1,0,
-		1,0,1,0,1,
-		0,1,0,1,0,
-		1,0,1,0,1,
-		0,1,0,1,0,
+		0,1,0,1,0,0,0,0,
+		1,0,1,0,1,0,0,0,
+		0,1,0,1,0,0,0,0,
+		1,0,1,0,1,0,0,0,
+		0,1,0,1,0,0,0,0,
+		0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,
+		0,0,0,0,0,0,0,0,
 	}
 };
+
+void DrawFontGlyph(uint32_t* font, uint8_t glyph, int x, int y)
+{
+	volatile uint16_t* fb = (void*)FRAMEBUFFER;
+
+	for (int uvy=0; uvy<6; ++uvy) {
+		for (int uvx=0; uvx<6; ++uvx) {
+			int fontTextureWidth = 48;
+			int fontTextureHeight = 96;
+			uint32_t fontPixel = font[((glyph/8)*6+(5-uvy))*fontTextureWidth + (glyph%8)*6+uvx];
+			if (fontPixel /*font[glyph][uvy*8+uvx]*/) {
+				fb[(y+uvy)*320+(x+uvx)] = 0xFFFF;
+			} else {
+				fb[(y+uvy)*320+(x+uvx)] = 0x0000;
+			}
+		}
+	}
+}
+
+void DrawFontString(uint32_t* font, char* str, int x, int y)
+{
+	int len = strlen(str);
+	for (int idx=0; idx<len; ++idx) {
+		uint8_t c = str[idx];
+		if (c >= 'a' && c <= 'z') {
+			c = 'A' + (c-'a');
+		}
+		DrawFontGlyph(font, c, x+idx*6, y);
+	}
+}
+
+void FormatString(char* str, ...)
+{
+	va_list va;
+	va_start(va, str);
+}
 
 int main()
 {
@@ -205,17 +256,32 @@ int main()
 		// 	fa[i] *= fb[i];
 		// }
 
-		int x = 20;
-		int y = 20;
-		for (int uvy=0; uvy<5; ++uvy) {
-			for (int uvx=0; uvx<5; ++uvx) {
-				if (font[0][uvy*5+uvx]) {
-					fb[(y+uvy)*320+(x+uvx)] = 0xFFFF;
-				} else {
-					fb[(y+uvy)*320+(x+uvx)] = 0x0000;
-				}
+		for (int uvy=0; uvy<96; ++uvy) {
+			for (int uvx=0; uvx<48; ++uvx) {
+				fb[(100+uvy)*320+(10+uvx)] = N64FontSmall[(95-uvy)*48+uvx];
 			}
 		}
+
+		DrawFontGlyph(N64FontSmall, 'A', 20, 20);
+		DrawFontGlyph(N64FontSmall, 'B', 26, 20);
+		DrawFontGlyph(N64FontSmall, 'C', 32, 20);
+
+		DrawFontString(N64FontSmall, "HELLO WORLD 256.4096", 20, 30);
+		DrawFontString(N64Font, "HELLO WORLD 256.4096", 20, 40);
+		DrawFontString(N64Font, "1089108398274985 01928302938493567", 20, 50);
+		DrawFontString(N64Font, "The quick brown fox jumps over the lazy dog", 20, 60);
+
+		// int x = 20;
+		// int y = 20;
+		// for (int uvy=0; uvy<5; ++uvy) {
+		// 	for (int uvx=0; uvx<5; ++uvx) {
+		// 		if (font[0][uvy*5+uvx]) {
+		// 			fb[(y+uvy)*320+(x+uvx)] = 0xFFFF;
+		// 		} else {
+		// 			fb[(y+uvy)*320+(x+uvx)] = 0x0000;
+		// 		}
+		// 	}
+		// }
 		// x = 20;
 		// y = 30;
 		// for (int uvy=0; uvy<5; ++uvy) {

@@ -39,11 +39,10 @@ SECTIONS {
 	. = ALIGN(16);
 	__data_rom_start = LOADADDR(.data);
 
+	__data_start = .;
 	.data ALIGN(16) : {
-		__data_start = .;
 		*(.data*)
 		. = ALIGN(8);
-		__data_end = .;
 	}
 
 	.sdata : {
@@ -53,6 +52,7 @@ SECTIONS {
 		*(.gnu.linkonce.s.*)
 		. = ALIGN(8);
 	}
+	__data_end = .;
 
 	. = ALIGN(16);
 

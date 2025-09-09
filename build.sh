@@ -3,8 +3,12 @@
 #   Copyright 2025 GiantJelly. All rights reserved.
 # 
 
+set -e
 mkdir -p ./build
-rm ./build/*
+rm -f ./build/*
+
+fontpacker ./resources/n64font.bmp -o ./resources/n64font.h -name N64FontSmall
+fontpacker ./resources/n64fontwide.bmp -o ./resources/n64fontwide.h -name N64Font
 
 compile=/opt/libdragon/bin/mips64-elf-gcc
 link=/opt/libdragon/bin/mips64-elf-ld

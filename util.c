@@ -7,6 +7,16 @@
 #include <stdint.h>
 
 
+unsigned long strlen(const char* str)
+{
+	unsigned long result = 0;
+	while (*str++) {
+		++result;
+	}
+
+	return result;
+}
+
 void* memset(void* dest, int value, size_t size)
 {
 	void* result = dest;
