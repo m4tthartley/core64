@@ -6,9 +6,23 @@
 EXTERN(_start)
 ENTRY(_start)
 
-SECTIONS {
-	# n64 code starts after exception vectors
+# Loadable segments
+PHDRS {
+	#text PT_LOAD FLAGS(0x5);
+	#data PT_LOAD FLAGS(0x6);
+	excepthdr PT_LOAD AT ( 0x80000000 );
+	main PT_LOAD AT ( 0x80000400 );
+}
 
+SECTIONS {
+	# exception vectors in the first 0x400 of ram
+	. = 0x80000000;
+	.exception_vectors  : {
+		. = ALIGN(32);
+		KEEP(*(.exception_vectors))
+	} :excepthdr
+
+	# n64 code starts after exception vectors
 	. = 0x80000400;
 
 	.text : {
@@ -80,10 +94,4 @@ SECTIONS {
 		*(.comment)
 		*(.mdebug*)
 	}
-}
-
-PHDRS {
-	#text PT_LOAD FLAGS(0x5);
-	#data PT_LOAD FLAGS(0x6);
-	main PT_LOAD AT ( 0x80000400 );
 }

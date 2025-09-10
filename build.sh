@@ -23,9 +23,10 @@ linkFlags="-T linker.ld -nostdlib"
 
 $compile $flags main.c -S -o ./build/main.s
 $compile $flags main.c -o ./build/main.o
-$compile $flags boot.s -o ./build/boot.o
+$compile $flags -x assembler-with-cpp boot.s -o ./build/boot.o
+$compile $flags exception.s -o ./build/exception.o
 
-$link $linkFlags ./build/main.o ./build/boot.o -o ./build/main.elf -Map ./build/build.map
+$link $linkFlags ./build/main.o ./build/boot.o ./build/exception.o -o ./build/main.elf -Map ./build/build.map
 
 # $objcopy -O binary ./build/main.elf ./build/main.bin
 

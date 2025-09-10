@@ -159,9 +159,10 @@ void DrawFontGlyph(uint32_t* font, uint8_t glyph, int x, int y)
 			uint32_t fontPixel = font[((glyph/8)*6+(5-uvy))*fontTextureWidth + (glyph%8)*6+uvx];
 			if (fontPixel /*font[glyph][uvy*8+uvx]*/) {
 				fb[(y+uvy)*320+(x+uvx)] = 0xFFFF;
-			} else {
-				fb[(y+uvy)*320+(x+uvx)] = 0x0000;
 			}
+			//  else {
+			// 	fb[(y+uvy)*320+(x+uvx)] = 0x0000;
+			// }
 		}
 	}
 }
@@ -237,7 +238,15 @@ int main()
 	uint8_t r = 0;
 	uint8_t g = 0;
 	uint8_t b = 0;
+	uint16_t color = 0;
+	uint32_t fbIndex = 0;
 	for (;;) {
+		for (int idx=0; idx<10; ++idx) {
+			fb[fbIndex] = (color) ;
+			++fbIndex;
+			fbIndex %= (320*240);
+			++color;
+		}
 		// for (int y=0; y<240; ++y) {
 		// 	for (int x=0; x<320; ++x) {
 
@@ -271,6 +280,12 @@ int main()
 		DrawFontString(N64Font, "1089108398274985 01928302938493567", 20, 50);
 		DrawFontString(N64Font, "The quick brown fox jumps over the lazy dog", 20, 60);
 
+		if (fbIndex > 1024) {
+			int* asd = 0;
+			*asd = 5;
+		}
+		// fb[1024] = 31<<11;
+
 		// int x = 20;
 		// int y = 20;
 		// for (int uvy=0; uvy<5; ++uvy) {
@@ -298,4 +313,24 @@ int main()
 	}
 
 	return 0;
+}
+
+typedef struct {
+	uint32_t cause;
+} exceptionframe_t;
+
+void ExceptionHandler(exceptionframe_t* frame)
+{
+	volatile uint16_t* fb = (void*)FRAMEBUFFER;
+
+	for (int y=0; y<240; ++y) {
+		for (int x=0; x<320; ++x) {
+			fb[y*320+x] = (31<<11) | (31<<1);
+		}
+	}
+
+	DrawFontString(N64FontSmall, "CPU Exception", 10, 5);
+	if (frame) {
+		DrawFontString(N64FontSmall, "frame", 10, 15);
+	}
 }
