@@ -55,8 +55,15 @@ interupt_handler:
 	move $k0, $sp
 	# la $sp, __exception_stack_top
 
-	addiu $sp, -4
+	addiu $sp, -4*3
 	move $k1, $sp
+
+	mfc0 $t0, $12
+	mfc0 $t1, $13
+
+	sw $t0, 0($k1)
+	sw $t1, 4($k1)
+	sw $sp, 8($k1)
 
 	move $a0, $k1
 	jal ExceptionHandler

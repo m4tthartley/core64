@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdarg.h>
 
+#include "print.c"
 #include "util.c"
 #include "video.c"
 #include "resources/n64font.h"
@@ -265,11 +266,11 @@ int main()
 		// 	fa[i] *= fb[i];
 		// }
 
-		for (int uvy=0; uvy<96; ++uvy) {
-			for (int uvx=0; uvx<48; ++uvx) {
-				fb[(100+uvy)*320+(10+uvx)] = N64FontSmall[(95-uvy)*48+uvx];
-			}
-		}
+		// for (int uvy=0; uvy<96; ++uvy) {
+		// 	for (int uvx=0; uvx<48; ++uvx) {
+		// 		fb[(100+uvy)*320+(10+uvx)] = N64FontSmall[(95-uvy)*48+uvx];
+		// 	}
+		// }
 
 		DrawFontGlyph(N64FontSmall, 'A', 20, 20);
 		DrawFontGlyph(N64FontSmall, 'B', 26, 20);
@@ -280,10 +281,33 @@ int main()
 		DrawFontString(N64Font, "1089108398274985 01928302938493567", 20, 50);
 		DrawFontString(N64Font, "The quick brown fox jumps over the lazy dog", 20, 60);
 
+		char str[256];
+		sprint(str, 256, "The number is: %i", 578);
+		DrawFontString(N64Font, str, 20, 70);
+		sprint(str, 256, "The number is: %i", -578);
+		DrawFontString(N64Font, str, 20, 80);
+		sprint(str, 256, "The number is: %lu", 0xFFFFFFFFFFFFFFFF);
+		DrawFontString(N64Font, str, 20, 90);
+		sprint(str, 256, "The number is: %f", 5.78f);
+		DrawFontString(N64Font, str, 20, 100);
+		sprint(str, 256, "The number is: %s", "Hello World");
+		DrawFontString(N64Font, str, 20, 110);
+		sprint(str, 256, "The number is: %4x", 0xF);
+		DrawFontString(N64Font, str, 20, 120);
+		sprint(str, 256, "The number is: %8x", 0xFB);
+		DrawFontString(N64Font, str, 20, 130);
+		sprint(str, 256, "The number is: %16x", 0x8F3D);
+		DrawFontString(N64Font, str, 20, 140);
+		sprint(str, 256, "The number is: %32x", 0xFFFF8F3D);
+		DrawFontString(N64Font, str, 20, 150);
+		sprint(str, 256, "The number is: %64x", 0x12345678FFFF8F3D);
+		DrawFontString(N64Font, str, 20, 160);
+
 		if (fbIndex > 1024) {
 			int* asd = 0;
 			*asd = 5;
 		}
+
 		// fb[1024] = 31<<11;
 
 		// int x = 20;
@@ -316,7 +340,10 @@ int main()
 }
 
 typedef struct {
+	uint32_t status;
 	uint32_t cause;
+
+	uint32_t sp;
 } exceptionframe_t;
 
 void ExceptionHandler(exceptionframe_t* frame)
@@ -329,8 +356,19 @@ void ExceptionHandler(exceptionframe_t* frame)
 		}
 	}
 
-	DrawFontString(N64FontSmall, "CPU Exception", 10, 5);
-	if (frame) {
-		DrawFontString(N64FontSmall, "frame", 10, 15);
-	}
+	DrawFontString(N64Font, "CPU Exception", 10, 5);
+	// if (frame) {
+	// 	DrawFontString(N64FontSmall, "frame", 10, 15);
+	// }
+	char str[256];
+
+	// sizeof(frame)
+	sprint(str, 256, "Frame pointer: %32x", frame);
+	DrawFontString(N64Font, str, 10, 25);
+	sprint(str, 256, "Stack pointer: %32x", frame->sp);
+	DrawFontString(N64Font, str, 10, 35);
+	sprint(str, 256, "Status: %32x", frame->status);
+	DrawFontString(N64Font, str, 10, 45);
+	sprint(str, 256, "Cause: %32x", frame->cause);
+	DrawFontString(N64Font, str, 10, 55);
 }
