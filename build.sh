@@ -24,7 +24,7 @@ linkFlags="-T linker.ld -nostdlib"
 $compile $flags main.c -S -o ./build/main.s
 $compile $flags main.c -o ./build/main.o
 $compile $flags -x assembler-with-cpp boot.s -o ./build/boot.o
-$compile $flags exception.s -o ./build/exception.o
+$compile $flags -x assembler-with-cpp exception.s -o ./build/exception.o
 
 $link $linkFlags ./build/main.o ./build/boot.o ./build/exception.o -o ./build/main.elf -Map ./build/build.map
 
@@ -47,8 +47,9 @@ echo "\ndone."
 
 # $link 
 
-# /opt/libdragon/bin/mips64-elf-objdump -d -h -f ./build/main.elf
+/opt/libdragon/bin/mips64-elf-objdump -d -h -f ./build/main.elf > ./build/rom_elf_dump.txt
 # /opt/libdragon/bin/mips64-elf-readelf ./build/main.elf -l
+# /opt/libdragon/bin/mips64-elf-objdump -h ./build/main.elf
 
 # echo "\n---";
 # /opt/libdragon/bin/mips64-elf-objdump -f ../libdragon/examples/test/build/test.elf

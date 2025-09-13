@@ -8,10 +8,7 @@
 	-	Separate ROM and RAM memory
 		data shouldn't be copied over to RAM automatically
 		as apparently that won't work on real hardware
-
-	- Setup and copy to RAM .sdata, .sbss, .rodata?
-	
-	- Set up $gp small data pointer
+		research this
 
 	- Flush cache after copying data to RAM
 */
@@ -29,8 +26,9 @@
 
 void WaitForVideoSync()
 {
-	while (*(volatile uint32_t*)VI_CURSOR < 0x200);
-	while (*(volatile uint32_t*)VI_CURSOR >= 0x200);
+	volatile uint32_t* viregs = (uint32_t*)VI_BASE;
+	while (viregs[VI_CURRENTLINE] < 0x200);
+	while (viregs[VI_CURRENTLINE] >= 0x200);
 }
 
 void SetVI(void* loc, uint32_t value)
@@ -38,120 +36,34 @@ void SetVI(void* loc, uint32_t value)
 	*(volatile uint32_t*)loc = value;
 }
 
-uint32_t randState32 = 0;//2463534242; // TODO: If I set this to zero it crashes
-uint64_t pcgState = 0x853C49E6748FEA9BULL;
-uint64_t pcgInc = 0xDA3E39CB94B95BDBULL;
-
-uint32_t RandXorShift32()
+#if 0
+void DrawRandomIntoFramebuffer32()
 {
-	if (!randState32) {
-		randState32 = 2463534242;
+	volatile uint16_t* fb = (void*)VI_FRAMEBUFFERBASE;
+
+	for (int y=0; y<240; ++y) {
+		for (int x=0; x<320; ++x) {
+			uint32_t r = Rand32();
+			fb[y*320+x] = r;
+		}
 	}
-
-	randState32 ^= randState32 << 13;
-	randState32 ^= randState32 << 17;
-	randState32 ^= randState32 << 5;
-	return randState32;
 }
+#endif
 
-uint32_t RandLCG()
+void BlitFontTexture()
 {
-	if (!randState32) {
-		randState32 = 1;
+	volatile uint16_t* fb = (void*)VI_FRAMEBUFFERBASE;
+
+	for (int uvy=0; uvy<96; ++uvy) {
+		for (int uvx=0; uvx<48; ++uvx) {
+			fb[(100+uvy)*320+(10+uvx)] = N64FontSmall[(95-uvy)*48+uvx];
+		}
 	}
-	randState32 = 1664525 * randState32 + 1013904223;
-	return randState32;
 }
-
-uint32_t RandPCG()
-{
-	uint64_t oldState = pcgState;
-	pcgState = oldState * 6364136223846793005ULL + (pcgInc | 1);
-	uint32_t xor = ((oldState >> 18u) ^ oldState) >> 27u;
-	uint32_t rot = oldState >> 59u;
-	return (xor >> rot) | (xor << ((-rot) & 31));
-}
-
-uint32_t Rand32()
-{
-	return RandPCG();
-}
-
-uint32_t Rand32Range(uint32_t min, uint32_t max)
-{
-	uint32_t range = max - min;
-	return min + (Rand32() % range);
-}
-
-// int32_t Rand32RangeSigned(int32_t min, int32_t max)
-// {
-
-// }
-
-extern uint8_t __bss_start;
-extern uint8_t __bss_end;
-
-uint16_t clearColor = 196<<8;
-uint16_t clearColor2 = 31;
-uint16_t clearColor3 = 31;
-uint16_t clearColor4 = 31;
-uint8_t clearColor5 = 31;
-uint8_t clearColor6 = 31;
-uint8_t clearColor7 = 31;
-
-uint8_t font[][8*8] = {
-	// {
-	// 	0,0,0,0,0,
-	// 	0,0,0,0,0,
-	// 	0,0,0,0,0,
-	// 	0,0,0,0,0,
-	// 	0,0,0,0,0,
-	// },
-	{
-		0,1,1,1,0,0,0,0,
-		1,0,0,0,1,0,0,0,
-		1,0,0,0,1,0,0,0,
-		1,1,1,1,1,0,0,0,
-		1,0,0,0,1,0,0,0,
-		1,0,0,0,1,0,0,0,
-		1,0,0,0,1,0,0,0,
-		0,0,0,0,0,0,0,0,
-	},
-	{
-		1,1,1,1,0,0,0,0,
-		1,0,0,0,1,0,0,0,
-		1,0,0,1,0,0,0,0,
-		1,0,0,0,1,0,0,0,
-		1,1,1,1,0,0,0,0,
-		0,0,0,0,0,0,0,0,
-		0,0,0,0,0,0,0,0,
-		0,0,0,0,0,0,0,0,
-	},
-	{
-		0,1,1,1,1,0,0,0,
-		1,0,0,0,0,0,0,0,
-		1,0,0,0,0,0,0,0,
-		1,0,0,0,0,0,0,0,
-		0,1,1,1,1,0,0,0,
-		0,0,0,0,0,0,0,0,
-		0,0,0,0,0,0,0,0,
-		0,0,0,0,0,0,0,0,
-	},
-	{
-		0,1,0,1,0,0,0,0,
-		1,0,1,0,1,0,0,0,
-		0,1,0,1,0,0,0,0,
-		1,0,1,0,1,0,0,0,
-		0,1,0,1,0,0,0,0,
-		0,0,0,0,0,0,0,0,
-		0,0,0,0,0,0,0,0,
-		0,0,0,0,0,0,0,0,
-	}
-};
 
 void DrawFontGlyph(uint32_t* font, uint8_t glyph, int x, int y)
 {
-	volatile uint16_t* fb = (void*)FRAMEBUFFER;
+	volatile uint16_t* fb = (void*)VI_FRAMEBUFFERBASE;
 
 	for (int uvy=0; uvy<6; ++uvy) {
 		for (int uvx=0; uvx<6; ++uvx) {
@@ -161,9 +73,24 @@ void DrawFontGlyph(uint32_t* font, uint8_t glyph, int x, int y)
 			if (fontPixel /*font[glyph][uvy*8+uvx]*/) {
 				fb[(y+uvy)*320+(x+uvx)] = 0xFFFF;
 			}
-			//  else {
-			// 	fb[(y+uvy)*320+(x+uvx)] = 0x0000;
-			// }
+		}
+	}
+}
+
+void DrawFontGlyphWithBG(uint32_t* font, uint8_t glyph, int x, int y)
+{
+	volatile uint16_t* fb = (void*)VI_FRAMEBUFFERBASE;
+
+	for (int uvy=0; uvy<6; ++uvy) {
+		for (int uvx=0; uvx<6; ++uvx) {
+			int fontTextureWidth = 48;
+			int fontTextureHeight = 96;
+			uint32_t fontPixel = font[((glyph/8)*6+(5-uvy))*fontTextureWidth + (glyph%8)*6+uvx];
+			if (fontPixel /*font[glyph][uvy*8+uvx]*/) {
+				fb[(y+uvy)*320+(x+uvx)] = 0xFFFF;
+			} else {
+				fb[(y+uvy)*320+(x+uvx)] = (31<<11) | (31<<1);
+			}
 		}
 	}
 }
@@ -180,161 +107,49 @@ void DrawFontString(uint32_t* font, char* str, int x, int y)
 	}
 }
 
-void FormatString(char* str, ...)
+void DrawFontStringWithBG(uint32_t* font, char* str, int x, int y)
 {
-	va_list va;
-	va_start(va, str);
+	int len = strlen(str);
+	for (int idx=0; idx<len; ++idx) {
+		uint8_t c = str[idx];
+		if (c >= 'a' && c <= 'z') {
+			c = 'A' + (c-'a');
+		}
+		DrawFontGlyphWithBG(font, c, x+idx*6, y);
+	}
 }
 
 int main()
 {
-	// memset(&__bss_start, 0, &__bss_end-&__bss_start);
-	// memset(&pcgState, 0, &pcgInc-&pcgState);
-	// float x = 5;
-	// float y = 5;
-	// float z = 5;
-	// uint16_t w = 5;
-
-	// lol we don't even have printf
-	// printf("Hello N64 \n");
-
-	// float fa[256] = {0};
-	// float fb[256] = {0};
-	// for (int i=0; i<256; ++i) {
-	// 	fa[i] = (float)i;
-	// 	fb[i] = (float)i;
-	// }
-
-	// SetVI(CONTROL, 0b11 | (0b0011 << 12));
-	// SetVI(ORIGIN, FRAMEBUFFER);
-	// SetVI(WIDTH, 320*2);
-	// SetVI(INTR, 0x200);
-	// SetVI(CURSOR, 0);
-	// SetVI(BURST, 0x03E52239);
-	// SetVI(VSYNC, 0x0000020D /*240*/);
-	// SetVI(HSYNC, 0x00000C15 /*3093*/);
-	// SetVI(LEAP, 0x0C150C15 /*(320*2)<<16 | (320*2)*/);
-	// SetVI(HSTART, /*0x002501FF*/ /*(108<<16) | 748*/ 0x006c02ec);
-	// SetVI(VSTART, /*0x0000020D*/ /*(0x025<<16) | 0x1FF*/ 0x002501ff);
-	// SetVI(XSCALE, 0x00000200);
-	// SetVI(YSCALE, 0x00000400);
-
-	// uint32_t viregs[] = {
-	// 	0x00000000, 0x00000000, 0x00000000, 0x00000002,
-	// 	0x00000000, 0x03E52239, 0x0000020D, 0x00000C15,
-	// 	0x0C150C15, 0x006C02EC, 0x002501FF, 0x000E0204,
-	// 	0x00000000, 0x00000000,
-	// };
-
-	// // viregs[viorigin] = FRAMEBUFFER;
-	// // viregs[viwidth] = 320*2;
-	// // viregs[vixscale] = 0x00000200;
-	// // viregs[viyscale] = 0x00000400;
-	// // viregs[victrl] = 0b11 ;//| (0b0011 << 12);
-
 	InitDefaultVI();
 
-	volatile uint16_t* fb = (void*)FRAMEBUFFER;
+	volatile uint16_t* fb = (void*)VI_FRAMEBUFFERBASE;
 
-	uint8_t r = 0;
-	uint8_t g = 0;
-	uint8_t b = 0;
 	uint16_t color = 0;
 	uint32_t fbIndex = 0;
 	for (;;) {
-		for (int idx=0; idx<10; ++idx) {
+		for (int idx=0; idx<320; ++idx) {
 			fb[fbIndex] = (color) ;
 			++fbIndex;
 			fbIndex %= (320*240);
 			++color;
 		}
-		// for (int y=0; y<240; ++y) {
-		// 	for (int x=0; x<320; ++x) {
-
-		// 		uint32_t r = Rand32();
-
-		// 		fb[y*320+x] = r;
-		// 	}
-		// }
 
 		fb[10*320+10] = 0xFFFF;
 		fb[10*320+11] = 0xF0F0;
-		// fb[10*320+12] = 0x00FF00FF;
-		// fb[10*320+13] = 0x0000FFFF;
 
-		// for (int i=0; i<256; ++i) {
-		// 	fa[i] *= fb[i];
-		// }
-
-		// for (int uvy=0; uvy<96; ++uvy) {
-		// 	for (int uvx=0; uvx<48; ++uvx) {
-		// 		fb[(100+uvy)*320+(10+uvx)] = N64FontSmall[(95-uvy)*48+uvx];
-		// 	}
-		// }
-
-		DrawFontGlyph(N64FontSmall, 'A', 20, 20);
-		DrawFontGlyph(N64FontSmall, 'B', 26, 20);
-		DrawFontGlyph(N64FontSmall, 'C', 32, 20);
-
-		DrawFontString(N64FontSmall, "HELLO WORLD 256.4096", 20, 30);
-		DrawFontString(N64Font, "HELLO WORLD 256.4096", 20, 40);
-		DrawFontString(N64Font, "1089108398274985 01928302938493567", 20, 50);
-		DrawFontString(N64Font, "The quick brown fox jumps over the lazy dog", 20, 60);
-
-		char str[256];
-		sprint(str, 256, "The number is: %i", 578);
-		DrawFontString(N64Font, str, 20, 70);
-		sprint(str, 256, "The number is: %i", -578);
-		DrawFontString(N64Font, str, 20, 80);
-		sprint(str, 256, "The number is: %lu", 0xFFFFFFFFFFFFFFFF);
-		DrawFontString(N64Font, str, 20, 90);
-		sprint(str, 256, "The number is: %f", 5.78f);
-		DrawFontString(N64Font, str, 20, 100);
-		sprint(str, 256, "The number is: %s", "Hello World");
-		DrawFontString(N64Font, str, 20, 110);
-		sprint(str, 256, "The number is: %4x", 0xF);
-		DrawFontString(N64Font, str, 20, 120);
-		sprint(str, 256, "The number is: %8x", 0xFB);
-		DrawFontString(N64Font, str, 20, 130);
-		sprint(str, 256, "The number is: %16x", 0x8F3D);
-		DrawFontString(N64Font, str, 20, 140);
-		sprint(str, 256, "The number is: %32x", 0xFFFF8F3D);
-		DrawFontString(N64Font, str, 20, 150);
-		sprint(str, 256, "The number is: %64x", 0x12345678FFFF8F3D);
-		DrawFontString(N64Font, str, 20, 160);
+		DrawFontString(N64Font, "HELLO WORLD 256.4096", 20, 30);
 
 		if (fbIndex > 1024) {
-			int* asd = 0;
-			*asd = 5;
+			// Trigger error to test exceptions
+			// int* asd = 0;
+			// *asd = 5;
 		}
 
-		// fb[1024] = 31<<11;
-
-		// int x = 20;
-		// int y = 20;
-		// for (int uvy=0; uvy<5; ++uvy) {
-		// 	for (int uvx=0; uvx<5; ++uvx) {
-		// 		if (font[0][uvy*5+uvx]) {
-		// 			fb[(y+uvy)*320+(x+uvx)] = 0xFFFF;
-		// 		} else {
-		// 			fb[(y+uvy)*320+(x+uvx)] = 0x0000;
-		// 		}
-		// 	}
-		// }
-		// x = 20;
-		// y = 30;
-		// for (int uvy=0; uvy<5; ++uvy) {
-		// 	for (int uvx=0; uvx<5; ++uvx) {
-		// 		if (font[1][uvy*5+uvx]) {
-		// 			fb[(y+uvy)*320+(x+uvx)] = 0xFFFFFFFF;
-		// 		} else {
-		// 			fb[(y+uvy)*320+(x+uvx)] = 0x00000000;
-		// 		}
-		// 	}
-		// }
-
-		WaitForVideoSync();
+		// WaitForVideoSync();
+		fb[10*320+20] = 0xFFFF;
 	}
+
 
 	return 0;
 }
@@ -342,33 +157,119 @@ int main()
 typedef struct {
 	uint32_t status;
 	uint32_t cause;
+	uint32_t epc;
+	uint32_t addr;
 
 	uint32_t sp;
 } exceptionframe_t;
 
+char* GetExcCodeName(uint8_t code)
+{
+	switch (code) {
+		case 0: return "Interrupt";
+
+		case 1: return "TLB Modification";
+		case 2: return "TLB Load Miss";
+		case 3: return "TLB Store Miss";
+
+		case 4: return "Address Load Error";
+		case 5: return "Address Store Error";
+
+		case 6: return "Hardware Bus Error (instruction fetch)";
+		case 7: return "Hardware Bus Error (load/store data)";
+
+		case 8: return "Syscall";
+		case 9: return "Breakpoint";
+		case 10: return "Invalid Instruction";
+		case 11: return "Coprocessor Unusable";
+		case 12: return "Arithmetic Overflow";
+		case 13: return "Trap";
+		case 15: return "Floating Point Error";
+		case 23: return "Watch Interrupt";
+
+		default: return "Unknown Exception";
+	}
+}
+
+char* GetInterruptName(uint8_t code)
+{
+	switch (code) {
+		case MI_INTERRUPT_SP: return "Mi_InterruptSp";
+		case MI_INTERRUPT_SI: return "Mi_InterruptSi";
+		case MI_INTERRUPT_AI: return "Mi_InterruptAi";
+		case MI_INTERRUPT_VI: return "Mi_InterruptVi";
+		case MI_INTERRUPT_PI: return "Mi_InterruptPi";
+		case MI_INTERRUPT_DP: return "Mi_InterruptDp";
+
+		default: return "Unknown Interrupt";
+	}
+}
+
 void ExceptionHandler(exceptionframe_t* frame)
 {
-	volatile uint16_t* fb = (void*)FRAMEBUFFER;
+	volatile uint16_t* fb = (void*)VI_FRAMEBUFFERBASE;
 
-	for (int y=0; y<240; ++y) {
-		for (int x=0; x<320; ++x) {
-			fb[y*320+x] = (31<<11) | (31<<1);
+	volatile uint32_t* miregs = (uint32_t*)MI_BASE;
+	uint32_t miStatus = miregs[MI_INTERRUPT] & miregs[MI_INTERRUPT_MASK];
+
+	// for (int y=0; y<240; ++y) {
+	// 	for (int x=0; x<320; ++x) {
+	// 		fb[y*320+x] = (31<<11) | (31<<1);
+	// 	}
+	// }
+
+	// Interrupt, this is just to visualize interrupt info for debugging
+	if (!(frame->cause & 0xFF)) {
+		char str[256];
+		sprint(str, 256, "Interrupt: %i %s", miStatus, GetInterruptName(miStatus));
+		DrawFontStringWithBG(N64Font, str, 10, 5);
+		sprint(str, 256, "Cause: %32x, %u", frame->cause, frame->cause);
+		DrawFontStringWithBG(N64Font, str, 10, 15);
+
+		sprint(str, 256, "Mi Interrupt: %32x", miregs[MI_INTERRUPT]);
+		DrawFontStringWithBG(N64Font, str, 10, 25);
+		sprint(str, 256, "Mi Interrupt Mask: %32x", miregs[MI_INTERRUPT_MASK]);
+		DrawFontStringWithBG(N64Font, str, 10, 35);
+
+		if (miStatus & MI_INTERRUPT_SP) {
+			DrawFontStringWithBG(N64Font, "SP Interrupt", 10, 45);
 		}
+		if (miStatus & MI_INTERRUPT_SI) {
+			DrawFontStringWithBG(N64Font, "SI Interrupt", 10, 45);
+		}
+		if (miStatus & MI_INTERRUPT_AI) {
+			DrawFontStringWithBG(N64Font, "AI Interrupt", 10, 45);
+		}
+		if (miStatus & MI_INTERRUPT_VI) {
+			DrawFontStringWithBG(N64Font, "VI Interrupt", 10, 45);
+		}
+		if (miStatus & MI_INTERRUPT_PI) {
+			DrawFontStringWithBG(N64Font, "PI Interrupt", 10, 45);
+		}
+		if (miStatus & MI_INTERRUPT_DP) {
+			DrawFontStringWithBG(N64Font, "DP Interrupt", 10, 45);
+		}
+
+		return;
 	}
 
-	DrawFontString(N64Font, "CPU Exception", 10, 5);
-	// if (frame) {
-	// 	DrawFontString(N64FontSmall, "frame", 10, 15);
-	// }
+	// Exception info
+	DrawFontStringWithBG(N64Font, "CPU Exception", 10, 5);
+	
+	uint8_t cause = (frame->cause & 0b01111100) >> 2;
+	
 	char str[256];
+	sprint(str, 256, "ExcCode(%u)  %s", cause, GetExcCodeName(cause));
+	DrawFontStringWithBG(N64Font, str, 10, 25);
 
-	// sizeof(frame)
-	sprint(str, 256, "Frame pointer: %32x", frame);
-	DrawFontString(N64Font, str, 10, 25);
 	sprint(str, 256, "Stack pointer: %32x", frame->sp);
-	DrawFontString(N64Font, str, 10, 35);
+	DrawFontStringWithBG(N64Font, str, 10, 45);
 	sprint(str, 256, "Status: %32x", frame->status);
-	DrawFontString(N64Font, str, 10, 45);
-	sprint(str, 256, "Cause: %32x", frame->cause);
-	DrawFontString(N64Font, str, 10, 55);
+	DrawFontStringWithBG(N64Font, str, 10, 55);
+	sprint(str, 256, "Cause: %8x, %u", cause, cause);
+	DrawFontStringWithBG(N64Font, str, 10, 65);
+	sprint(str, 256, "Bad Address: %32x", /**(uint32_t*)0xA0001000*/ frame->addr);
+	DrawFontStringWithBG(N64Font, str, 10, 75);
+	sprint(str, 256, "EPC: %32x", frame->epc);
+	DrawFontStringWithBG(N64Font, str, 10, 85);
 }

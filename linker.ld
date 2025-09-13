@@ -8,8 +8,6 @@ ENTRY(_start)
 
 # Loadable segments
 PHDRS {
-	#text PT_LOAD FLAGS(0x5);
-	#data PT_LOAD FLAGS(0x6);
 	excepthdr PT_LOAD AT ( 0x80000000 );
 	main PT_LOAD AT ( 0x80000400 );
 }

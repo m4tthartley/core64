@@ -3,7 +3,11 @@
 ##  Copyright 2025 GiantJelly. All rights reserved.
 ##
 
+#include "registers.h"
+
+
 .extern ExceptionHandler
+.extern ResetVideoCurrentLine
 
 	.section .bss
 	.align 8
@@ -12,7 +16,6 @@ __exception_stack:
 __exception_stack_top:
 
 	.section .exception_vectors, "ax"
-	.align 4
 
 	.org 0x0
 __vector_tlb_refill:
@@ -30,49 +33,87 @@ __vector_cache_error:
 	nop
 
 	.org 0x180
-	# .balign 0x180
 __vector_general:
 	j interupt_handler
-	# lui $k0, %hi(ExceptionHandler)
-	# ori $k0, $k0, %lo(ExceptionHandler)
-	# jr $k0
-	# nop
+	nop
+	
 
-	# jal ExceptionHandler
-	# nop
-	# j __vector_general
-	# nop
-
-.section .text
+	.section .text
 
 	.p2align 5
 interupt_handler:
-	# lui   $t0, 0x0440       # VI_BASE = 0x04400000 mapped at 0xA4400000 (KSEG1)
-    # ori   $t0, $t0, 0x0000  # Adjust if needed
-    # li    $t1, 0x00000000   # Some color value
-    # sw    $t1, 0($t0)       # Write to VI_CONTROL or background color
+	.set noreorder
+	# .set noat
 
+	# save original stack pointer
 	move $k0, $sp
+
+	# not sure if a separate exception stack is really needed
 	# la $sp, __exception_stack_top
+	# push stack to make room for exception frame structure
+	addiu $sp, $sp, -24 # stack must be 8byte aligned
+	# move $k1, $sp
 
-	addiu $sp, -4*3
-	move $k1, $sp
+	# read in status, cause and epc registers from cop0
+#define status $t4
+#define cause $t5
+#define epc $t6
+#define badaddr $t7
+	mfc0 status, C0_SR
+	mfc0 cause, C0_CAUSE
+	mfc0 epc, C0_EPC
+	mfc0 badaddr, C0_BADVADDR
 
-	mfc0 $t0, $12
-	mfc0 $t1, $13
+	# store info in exception frame structure
+	sw status, 0($sp)
+	sw cause, 4($sp)
+	sw epc, 8($sp)
+	sw badaddr, 12($sp)
+	sw $k0, 16($sp)
 
-	sw $t0, 0($k1)
-	sw $t1, 4($k1)
-	sw $sp, 8($k1)
+	# disable interrupts, set exl=0 and force kernel mode
+	move $t0, status
+	and $t0, ~(SR_IE | SR_EXL | SR_KSU)
+	mtc0 $t0, C0_SR
+	nop
 
-	move $a0, $k1
+	# check if this is an interrupt
+	andi $t2, cause, 0xFF
+	beqz $t2, interrupt
+	nop
+	
+	move $a0, $sp
 	jal ExceptionHandler
 	nop
 
-	# lui $t0, 0xA020
-	# addiu $t0, 1024*2
-	# li $t1, 31<<6
-	# sw $t1, 0($t0)
+infloop:
+	j infloop
+	nop
 
-1:  j     1b                 # Infinite loop
-    nop
+interrupt:
+	li $t1, VI_FRAMEBUFFERBASE
+	li $t2, (31 << 11)
+	sw $t2, (1024*2)($t1)
+
+	# clear Vi interrupt
+	# I read that you need to do this but I'm not sure
+	li $t2, 0xA4300000
+	li $t3, 0x08
+	sw $t3, 0x08($t2)
+
+	# lui $t2, 0xA440
+	# lw $t3, 0x10($t2)
+	# sw $t3, 0x10($t2)
+	jal ResetVideoCurrentLine
+	nop
+
+	# restore status register
+	lw $t0, 0($sp)
+	lw $t1, 8($sp)
+	move $sp, $k0
+	mtc0 $t0, C0_SR
+	mtc0 $t1, C0_EPC
+	nop
+
+	# restore stack pointer return
+	eret

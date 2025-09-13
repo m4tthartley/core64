@@ -5,47 +5,8 @@
 
 #include <stdint.h>
 
+#include "registers.h"
 
-#define VI_BASE 0xA4400000
-#define VI_CURSOR (VI_BASE + 0x10)
-
-#define CONTROL (void*)(VI_BASE+0x00)
-#define ORIGIN (void*)(VI_BASE+0x04)
-#define WIDTH (void*)(VI_BASE+0x08)
-#define INTR (void*)(VI_BASE+0x0C)
-#define CURSOR (void*)(VI_BASE+0x10)
-#define BURST (void*)(VI_BASE+0x14)
-#define VSYNC (void*)(VI_BASE+0x18)
-#define HSYNC (void*)(VI_BASE+0x1C)
-#define LEAP (void*)(VI_BASE+0x20)
-#define HSTART (void*)(VI_BASE+0x24)
-#define VSTART (void*)(VI_BASE+0x28)
-#define XSCALE (void*)(VI_BASE+0x2C)
-#define YSCALE (void*)(VI_BASE+0x30)
-
-#define victrl		0 /* 0000 */
-#define viorigin	1 /* 0004 */
-#define viwidth		2 /* 0008 */
-#define viintr		3 /* 000C */
-#define vicurrent	4 /* 0010 */
-#define viburst		5 /* 0014 */
-#define vivsync		6 /* 0018 */
-#define vihsync		7 /* 001C */
-#define visyncleap	8 /* 0020 */
-#define vihvideo	9 /* 0024 */
-#define vivvideo	10 /* 0028 */
-#define vivburst	11 /* 002C */
-#define vixscale	12 /* 0030 */
-#define viyscale	13 /* 0034 */
-
-#define FRAMEBUFFER 0xA0200000
-
-#define VI_MODE_16BIT 0b10
-#define VI_MODE_32BIT 0b11
-
-#define VI_AA_MODE_ENABLED (0b00<<8)
-#define VI_AA_MODE_JUST_RESAMPLING (0b10<<8)
-#define VI_AA_MODE_DISABLED (0b11<<8)
 
 inline void SetVIRegister(uint32_t reg, uint32_t value)
 {
@@ -53,56 +14,40 @@ inline void SetVIRegister(uint32_t reg, uint32_t value)
 	// TODO: MEMORY BARRIER?
 }
 
-void InitDefaultVI()
+void EnableVideoInterrupts()
 {
-	uint32_t* viregs = (uint32_t*)VI_BASE;	
-
-	uint32_t controlMode = VI_MODE_16BIT | VI_AA_MODE_DISABLED; //0b00000000000000000000001100000010;
-	viregs[victrl] = controlMode; //0b10;
-	viregs[viorigin] = FRAMEBUFFER;
-	viregs[viwidth] = 320*1;
-	viregs[viintr] = 0x200;
-	viregs[vicurrent] = 0;
-	viregs[viburst] = 0x03E52239;
-	viregs[vivsync] = 0x0000020D;
-	viregs[vihsync] = 0x00000C15;
-	viregs[visyncleap] = 0x0C150C15;
-	viregs[vihvideo] = 0x006c02ec;
-	viregs[vivvideo] = 0x002501ff;
-	viregs[vivburst] = 0x000E0204;
-	viregs[vixscale] = 0x00000200;
-	viregs[viyscale] = 0x00000400;
+	uint32_t* interruptMask = ((uint32_t*)MI_BASE) + MI_INTERRUPT_MASK;
+	*interruptMask = MI_INT_VI_SET;
 }
 
-void InitDefaultVIWithMemcpy()
+void InitDefaultVI()
 {
-	uint32_t viregs[14];
-	uint32_t controlMode = 0b00000000000000000000001100000010;
-	viregs[victrl] = controlMode; //0b10;
-	viregs[viorigin] = FRAMEBUFFER;
-	viregs[viwidth] = 320*1;
-	viregs[viintr] = 0x200;
-	viregs[vicurrent] = 0;
-	viregs[viburst] = 0x03E52239;
-	viregs[vivsync] = 0x0000020D;
-	viregs[vihsync] = 0x00000C15;
-	viregs[visyncleap] = 0x0C150C15;
-	viregs[vihvideo] = 0x006c02ec;
-	viregs[vivvideo] = 0x002501ff;
-	viregs[vivburst] = 0x000E0204;
-	viregs[vixscale] = 0x00000200;
-	viregs[viyscale] = 0x00000400;
+	// uint32_t* miregs = (uint32_t*)MI_BASE;
+	volatile uint32_t* viregs = (uint32_t*)VI_BASE;
+	
+	uint32_t controlMode = VI_COLOR_MODE_16 | VI_AA_DISABLED;
+	viregs[VI_CONTROL] = controlMode;
+	viregs[VI_ORIGIN] = VI_FRAMEBUFFERBASE;
+	viregs[VI_WIDTH] = 320*1;
+	// viregs[VI_INTLINE] = 2;//0x200;
+	viregs[VI_CURRENTLINE] = 0;
+	viregs[VI_BURST] = 0x03E52239;
+	viregs[VI_VSYNC] = 0x0000020D;
+	viregs[VI_HSYNC] = 0x00000C15;
+	viregs[VI_SYNCLEAP] = 0x0C150C15;
+	viregs[VI_HORIZONTALVIDEO] = 0x006c02ec;
+	viregs[VI_VERTICALVIDEO] = 0x002501ff;
+	viregs[VI_VERTICALBURST] = 0x000E0204;
+	viregs[VI_XSCALE] = 0x00000200;
+	viregs[VI_YSCALE] = 0x00000400;
+	
+	// Enable VI interrupt
+	viregs[VI_INTLINE] = 240;
+	EnableVideoInterrupts();
+}
 
-	// NOTE: This only works if I'm setting them directly like this ^
-	// if I do it witht the memcpy it doesn't work, look into why
-
-	// CopyMemory((void*)VI_BASE, (uint8_t*)viregs, sizeof(viregs));
-
-	int num = 14;//sizeof(viregs);
-	uint32_t* dest = (void*)VI_BASE;
-	uint32_t* src = viregs;
-	while (num) {
-		*dest++ = *src++;
-		--num;
-	}
+void ResetVideoCurrentLine()
+{
+	volatile uint32_t* viregs = (uint32_t*)VI_BASE;
+	viregs[VI_CURRENTLINE] = viregs[VI_CURRENTLINE];
 }

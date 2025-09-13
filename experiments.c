@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 
+#if 0
 void DrawRandomNoise(volatile uint32_t* fb)
 {
 	// for (int y=0; y<240; ++y) {
@@ -62,3 +63,4 @@ void DrawRandomNoise(volatile uint32_t* fb)
 		WaitForVideoSync();
 	}
 }
+#endif
