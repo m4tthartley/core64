@@ -8,6 +8,8 @@
 #include "registers.h"
 
 
+uint32_t __viInterruptCounter = 0;
+
 inline void SetVIRegister(uint32_t reg, uint32_t value)
 {
 	((uint32_t*)(VI_BASE))[reg] = value;

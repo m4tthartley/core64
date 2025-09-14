@@ -134,10 +134,14 @@ int main()
 			fbIndex %= (320*240);
 			++color;
 		}
+		++color;
 
 		fb[10*320+10] = 0xFFFF;
 		fb[10*320+11] = 0xF0F0;
 
+		char str[64];
+		sprint(str, 64, "Interrupt Count: %u", __viInterruptCounter);
+		DrawFontString(N64Font, str, 20, 20);
 		DrawFontString(N64Font, "HELLO WORLD 256.4096", 20, 30);
 
 		if (fbIndex > 1024) {
@@ -155,13 +159,52 @@ int main()
 }
 
 typedef struct {
+	struct {
+		uint64_t zero;
+		uint64_t at;
+		uint64_t v0, v1;
+		uint64_t a0, a1, a2, a3;
+		uint64_t t0, t1, t2, t3, t4, t5, t6, t7, t8, t9;
+		uint64_t s0, s1, s2, s3, s4, s5, s6, s7, s8;
+		uint64_t k0, k1;
+		uint64_t gp;
+		uint64_t sp;
+		uint64_t ra;
+	};
+
 	uint32_t status;
 	uint32_t cause;
 	uint32_t epc;
-	uint32_t addr;
+	uint32_t badaddr;
 
-	uint32_t sp;
+	// uint32_t sp;
 } exceptionframe_t;
+
+uint32_t __EXCEPTIONFRAME_SIZE = (sizeof(exceptionframe_t) & ~7) + 8;
+// uint32_t __EF_AT = offsetof(exceptionframe_t, at);
+// uint32_t __EF_V0 = offsetof(exceptionframe_t, v0);
+// uint32_t __EF_V1 = offsetof(exceptionframe_t, v1);
+// uint32_t __EF_A0 = offsetof(exceptionframe_t, a0);
+// uint32_t __EF_A1 = offsetof(exceptionframe_t, a1);
+// uint32_t __EF_A2 = offsetof(exceptionframe_t, a2);
+// uint32_t __EF_A3 = offsetof(exceptionframe_t, a3);
+// uint32_t __EF_T0 = offsetof(exceptionframe_t, t0);
+// uint32_t __EF_T1 = offsetof(exceptionframe_t, t1);
+// uint32_t __EF_T2 = offsetof(exceptionframe_t, t2);
+// uint32_t __EF_T3 = offsetof(exceptionframe_t, t3);
+// uint32_t __EF_T4 = offsetof(exceptionframe_t, t4);
+// uint32_t __EF_T5 = offsetof(exceptionframe_t, t5);
+// uint32_t __EF_T6 = offsetof(exceptionframe_t, t6);
+// uint32_t __EF_T7 = offsetof(exceptionframe_t, t7);
+// uint32_t __EF_T8 = offsetof(exceptionframe_t, t8);
+// uint32_t __EF_T9 = offsetof(exceptionframe_t, t9);
+// uint32_t __EF_SP = offsetof(exceptionframe_t, sp);
+// uint32_t __EF_RA = offsetof(exceptionframe_t, ra);
+
+// uint32_t __EF_STATUS = offsetof(exceptionframe_t, status);
+// uint32_t __EF_CAUSE = offsetof(exceptionframe_t, cause);
+// uint32_t __EF_EPC = offsetof(exceptionframe_t, epc);
+// uint32_t __EF_BADADDR = offsetof(exceptionframe_t, badaddr);
 
 char* GetExcCodeName(uint8_t code)
 {
@@ -268,7 +311,7 @@ void ExceptionHandler(exceptionframe_t* frame)
 	DrawFontStringWithBG(N64Font, str, 10, 55);
 	sprint(str, 256, "Cause: %8x, %u", cause, cause);
 	DrawFontStringWithBG(N64Font, str, 10, 65);
-	sprint(str, 256, "Bad Address: %32x", /**(uint32_t*)0xA0001000*/ frame->addr);
+	sprint(str, 256, "Bad Address: %32x", /**(uint32_t*)0xA0001000*/ frame->badaddr);
 	DrawFontStringWithBG(N64Font, str, 10, 75);
 	sprint(str, 256, "EPC: %32x", frame->epc);
 	DrawFontStringWithBG(N64Font, str, 10, 85);

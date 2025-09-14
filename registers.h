@@ -3,6 +3,33 @@
 //  Copyright 2025 GiantJelly. All rights reserved.
 //
 
+
+#define __EF_AT 8
+#define __EF_V0 16
+#define __EF_V1 24
+#define __EF_A0 32
+#define __EF_A1 40
+#define __EF_A2 48
+#define __EF_A3 56
+#define __EF_T0 64
+#define __EF_T1 72
+#define __EF_T2 80
+#define __EF_T3 88
+#define __EF_T4 96
+#define __EF_T5 104
+#define __EF_T6 112
+#define __EF_T7 120
+#define __EF_T8 128
+#define __EF_T9 136
+#define __EF_SP 240
+#define __EF_RA 248
+
+#define __EF_STATUS 256
+#define __EF_CAUSE 260
+#define __EF_EPC 264
+#define __EF_BADADDR 268
+
+
 // COP0 registers
 #define C0_RANDOM $1
 #define C0_BADVADDR $8
