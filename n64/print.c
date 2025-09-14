@@ -76,6 +76,17 @@ int ilog10_64(uint64_t input) {
 }
 
 
+uint32_t strsize(char* str) {
+	if (!str) {
+		return 0;
+	}
+
+	int size = 0;
+	while(*str++) ++size;
+	return size;
+}
+
+
 // SPRINTING
 // TODO: Pull out setting buf chars into fucntion with len check
 #define _sprint_write(c) if (buf && ci<len-1) buf[ci] = (c);

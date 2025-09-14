@@ -3,7 +3,9 @@
 ##  Copyright 2025 GiantJelly. All rights reserved.
 ##
 
-#include "registers.h"
+#include "system.h"
+
+#include "exception.s"
 
 	.set noreorder
 	.global _start

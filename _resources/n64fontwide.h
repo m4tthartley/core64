@@ -1,3 +1,5 @@
+#ifndef FONT_PACKER_N64Font_H
+#define FONT_PACKER_N64Font_H
 #include <stdint.h>
 uint32_t N64Font[] = {
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -289,3 +291,4 @@ uint32_t N64Font[] = {
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 };
+#endif

@@ -3,12 +3,12 @@
 ##  Copyright 2025 GiantJelly. All rights reserved.
 ##
 
-#include "registers.h"
+#include "system.h"
 
 
 .extern ExceptionHandler
 .extern ResetVideoCurrentLine
-.extern __EXCEPTIONFRAME_SIZE
+.extern __INTERRUPT_FRAME_SIZE
 .extern __viInterruptCounter
 
 	.section .bss
@@ -17,7 +17,7 @@ __exception_stack:
 	.space 1024
 __exception_stack_top:
 
-	.section .exception_vectors, "ax"
+	.section .exception_vectors, "ax" # change name
 
 	.org 0x0
 __vector_tlb_refill:
@@ -53,7 +53,7 @@ interupt_handler:
 	# not sure if a separate exception stack is really needed
 	# la $sp, __exception_stack_top
 	# push stack to make room for exception frame structure
-	la $k0, __EXCEPTIONFRAME_SIZE
+	la $k0, __INTERRUPT_FRAME_SIZE
 	lw $k1, 0($k0)
 	move $k0, $sp
 	# addiu $sp, $sp, -$k1 # stack must be 8byte aligned
@@ -110,18 +110,57 @@ interupt_handler:
 	nop
 	
 	move $a0, $sp
+	addiu $sp, $sp, -32 # C functions may use 32bytes of stack as scratch space
 	jal ExceptionHandler
 	nop
+	addiu $sp, $sp, 32
 
 infloop:
 	j infloop
 	nop
 
 interrupt:
-	la $t0, __viInterruptCounter
-	lw $t1, 0($t0)
-	addiu $t1, $t1, 1
-	sw $t1, 0($t0)
+	# check for reset interrupt (prenmi)
+	lw $t0, __EF_CAUSE($sp)
+	andi $t0, $t0, 0x1000
+	bnez $t0, InterruptReset
+	nop
+
+	# check for timing interrupt
+	lw $t0, __EF_CAUSE($sp)
+	andi $t0, $t0, 0x8000
+	bnez $t0, InterruptReset
+	nop
+
+	# check for cart interrupt
+	lw $t0, __EF_CAUSE($sp)
+	andi $t0, $t0, 0x800
+	bnez $t0, InterruptCart
+	nop
+
+	# MI Interrupt
+	j InterruptMI
+	nop
+
+InterruptReset:
+InterruptTiming:
+InterruptCart:
+	addiu $sp, $sp, -32 # C functions may use 32bytes of stack as scratch space
+	jal UnhandledInterrupt
+	nop
+	addiu $sp, $sp, 32
+
+InterruptMI:
+	# increment interrupt counter
+	# la $t0, __viInterruptCounter
+	# lw $t1, 0($t0)
+	# addiu $t1, $t1, 1
+	# sw $t1, 0($t0)
+
+	# set interrupt true
+	# la $t0, __viInterrupt
+	# li $t1, 1
+	# sw $t1, 0($t0)
 
 	li $t1, VI_FRAMEBUFFERBASE
 	li $t2, (31 << 11)
@@ -129,15 +168,23 @@ interrupt:
 
 	# clear Vi interrupt
 	# I read that you need to do this but I'm not sure
-	li $t2, 0xA4300000
-	li $t3, 0x08
-	sw $t3, 0x08($t2)
+	# I don't think you need to do it
+	# li $t2, 0xA4300000
+	# li $t3, 0x08
+	# sw $t3, 0x08($t2)
 
 	# lui $t2, 0xA440
 	# lw $t3, 0x10($t2)
 	# sw $t3, 0x10($t2)
-	jal ResetVideoCurrentLine
+	# addiu $sp, $sp, -32 # C functions may use 32bytes of stack as scratch space
+	# jal ResetVideoCurrentLine
+	# nop
+	# addiu $sp, $sp, 32
+
+	addiu $sp, $sp, -32 # C functions may use 32bytes of stack as scratch space
+	jal InterruptHandler
 	nop
+	addiu $sp, $sp, 32
 
 	# restore status register
 	# lw $sp, __EF_SP($sp)

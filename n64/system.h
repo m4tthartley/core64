@@ -3,6 +3,9 @@
 //  Copyright 2025 GiantJelly. All rights reserved.
 //
 
+#ifndef SYSTEM_H
+#define SYSTEM_H
+
 
 #define __EF_AT 8
 #define __EF_V0 16
@@ -102,8 +105,18 @@
 #define MI_INTERRUPT_MASK 3
 // #define MI_INTR_MASK ((volatile uint32_t*)(MI_BASE + 0x0C))
 
-#define MI_INT_VI_SET 0x80
+#define MI_INT_SP_CLEAR 0x01
+#define MI_INT_SP_SET 0x02
+#define MI_INT_SI_CLEAR 0x04
+#define MI_INT_SI_SET 0x08
+#define MI_INT_AI_CLEAR 0x10
+#define MI_INT_AI_SET 0x20
 #define MI_INT_VI_CLEAR 0x40
+#define MI_INT_VI_SET 0x80
+#define MI_INT_PI_CLEAR 0x100
+#define MI_INT_PI_SET 0x200
+#define MI_INT_DP_CLEAR 0x400
+#define MI_INT_DP_SET 0x800
 
 #define MI_INTERRUPT_SP 0x01
 #define MI_INTERRUPT_SI 0x02
@@ -156,3 +169,5 @@
 
 #define VI_FRAMEBUFFERBASE 0xA0200000
 
+
+#endif

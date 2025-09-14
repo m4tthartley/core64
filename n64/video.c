@@ -4,11 +4,13 @@
 //
 
 #include <stdint.h>
+#include <stdbool.h>
 
-#include "registers.h"
+#include "system.h"
 
 
-uint32_t __viInterruptCounter = 0;
+volatile uint32_t __viInterruptCounter = 0;
+volatile uint32_t __viInterrupt = 0;
 
 inline void SetVIRegister(uint32_t reg, uint32_t value)
 {
@@ -46,6 +48,22 @@ void InitDefaultVI()
 	// Enable VI interrupt
 	viregs[VI_INTLINE] = 240;
 	EnableVideoInterrupts();
+}
+
+void WaitForVideoSync()
+{
+	// volatile uint32_t* viregs = (uint32_t*)VI_BASE;
+	// while (viregs[VI_CURRENTLINE] < 0x200);
+	// while (viregs[VI_CURRENTLINE] >= 0x200);
+
+	while (!__viInterrupt);
+	__viInterrupt = 0;
+}
+
+void HandleVideoInterrupt()
+{
+	__viInterruptCounter += 1;
+	__viInterrupt = 1;
 }
 
 void ResetVideoCurrentLine()

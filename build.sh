@@ -7,8 +7,8 @@ set -e
 mkdir -p ./build
 rm -f ./build/*
 
-fontpacker ./resources/n64font.bmp -o ./resources/n64font.h -name N64FontSmall
-fontpacker ./resources/n64fontwide.bmp -o ./resources/n64fontwide.h -name N64Font
+fontpacker ./_resources/n64font.bmp -o ./_resources/n64font.h -name N64FontSmall
+fontpacker ./_resources/n64fontwide.bmp -o ./_resources/n64fontwide.h -name N64Font
 
 compile=/opt/libdragon/bin/mips64-elf-gcc
 link=/opt/libdragon/bin/mips64-elf-ld
@@ -19,14 +19,14 @@ n64crc=/opt/libdragon/bin/chksum64
 n64elfcompress=/opt/libdragon/bin/n64elfcompress
 
 flags="-c -g3 -O2 -G 0 -MMD -nostdlib -nostartfiles -ffreestanding -nodefaultlibs -fno-builtin-memset"
-linkFlags="-T linker.ld -nostdlib"
+linkFlags="-T n64/linker.ld -nostdlib"
 
-$compile $flags main.c -S -o ./build/main.s
+# $compile $flags main.c -S -o ./build/main.s
 $compile $flags main.c -o ./build/main.o
-$compile $flags -x assembler-with-cpp boot.s -o ./build/boot.o
-$compile $flags -x assembler-with-cpp exception.s -o ./build/exception.o
+$compile $flags -x assembler-with-cpp n64/boot.s -o ./build/boot.o
+# $compile $flags -x assembler-with-cpp exception.s -o ./build/exception.o
 
-$link $linkFlags ./build/main.o ./build/boot.o ./build/exception.o -o ./build/main.elf -Map ./build/build.map
+$link $linkFlags ./build/main.o ./build/boot.o -o ./build/main.elf -Map ./build/build.map
 
 # $objcopy -O binary ./build/main.elf ./build/main.bin
 
