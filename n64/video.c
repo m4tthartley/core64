@@ -21,7 +21,7 @@ inline void SetVIRegister(uint32_t reg, uint32_t value)
 void EnableVideoInterrupts()
 {
 	uint32_t* interruptMask = ((uint32_t*)MI_BASE) + MI_INTERRUPT_MASK;
-	*interruptMask = MI_INT_VI_SET;
+	*interruptMask = MI_INT_VI_SET ;//| MI_INT_DP_SET;
 }
 
 void InitDefaultVI()
