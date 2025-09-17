@@ -162,9 +162,10 @@ InterruptMI:
 	# li $t1, 1
 	# sw $t1, 0($t0)
 
-	li $t1, VI_FRAMEBUFFERBASE
-	li $t2, (31 << 11)
-	sw $t2, (1024*3)($t1)
+	# this just draws a red dot to debug if the interrupt is working or not
+	# li $t1, VI_FRAMEBUFFERBASE
+	# li $t2, (31 << 11)
+	# sw $t2, (1024*3)($t1)
 
 	# clear Vi interrupt
 	# I read that you need to do this but I'm not sure
