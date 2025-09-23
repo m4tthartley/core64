@@ -11,6 +11,12 @@
 #include "n64/core64.h"
 
 
+volatile uint32_t __memorySize;
+volatile uint32_t __tvType;
+volatile uint32_t __resetType;
+volatile uint32_t __consoleType;
+
+
 #define DP_BASE 0xA4100000
 #define DP_START ((volatile uint32_t*)(DP_BASE + 0x0))
 #define DP_END ((volatile uint32_t*)(DP_BASE + 0x4))
@@ -155,6 +161,37 @@ void RDP_FillTriangle(rdpcmdlist_t* cmdlist, vecscreen_t* verts)
 
 int main()
 {
+	// BOOT TESTING
+#if 0
+	volatile bootinfo_t* bootInfo = (volatile bootinfo_t*)0x80000300;
+	
+	#define RDRAM_BASE 0x80000000
+	#define RDRAM_SIZE_4MB 0x00400000
+	#define RDRAM_SIZE_8MB 0x00800000
+	
+	__memorySize = RDRAM_SIZE_4MB;
+	// #define RDRAM_BASE 0x80000000
+
+	volatile uint32_t* probeAddr = (volatile uint32_t*)(RDRAM_BASE + RDRAM_SIZE_4MB);
+	uint32_t tmp = *probeAddr;
+	*probeAddr = 0xCAFEBABE;
+	__asm__ volatile("sync");
+	if (*probeAddr == 0xCAFEBABE) {
+		__memorySize = RDRAM_SIZE_8MB;
+	}
+	*probeAddr = tmp;
+
+	#define NTSC 0
+	#define PAL 1
+	#define MPAL 2
+
+	// tv type
+	#define PIF_RAM ((volatile uint8_t*)0xBFC00700);
+	volatile uint8_t* pif = PIF_RAM;
+	__tvType = pif[0x24];
+#endif
+	////////
+
 	volatile uint16_t* fb = (void*)VI_FRAMEBUFFERBASE;
 
 	InitDefaultVI();
@@ -412,7 +449,7 @@ int main()
 
 		// char str[64];
 		// sprint(str, 64, "dp current: %32x", *DP_CURRENT);
-		// DrawFontStringWithBG(N64Font, str, 10, 60);
+		// DrawFontString(N64Font, str, 10, 10);
 		// sprint(str, 64, "dp start: %32x", *DP_START);
 		// DrawFontStringWithBG(N64Font, str, 10, 70);
 		// sprint(str, 64, "dp status: %32x", *DP_STATUS);
@@ -420,6 +457,16 @@ int main()
 		// sprint(str, 64, "dp frozen: %32x", *DP_STATUS & 2);
 		// DrawFontStringWithBG(N64Font, str, 10, 90);
 
+
+		char str[64];
+		sprint(str, 64, "%32x", __tvType);
+		DrawFontString(N64Font, str, 10, 10);
+		sprint(str, 64, "reset type: %32x", __resetType);
+		DrawFontString(N64Font, str, 10, 20);
+		sprint(str, 64, "memory size: %32x", __memorySize);
+		DrawFontString(N64Font, str, 10, 30);
+		sprint(str, 64, "console type: %32x", __consoleType);
+		DrawFontString(N64Font, str, 10, 40);
 		
 
 		WaitForVideoSync();

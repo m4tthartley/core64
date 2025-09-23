@@ -50,6 +50,17 @@ ZeroLoopDone:
 	li $2, SR_CU1 | SR_PE | SR_FR | SR_KX | SR_SX | SR_UX | SR_IE | C0_INTERRUPT_RCP
 	mtc0 $2, C0_SR
 
+	# Get bootcode flags
+	lui $v0, 0xA400
+
+	la $v1, __memorySize
+	lw $t0, 0($v0)
+	sw $t0, 0($v1)
+
+	la $v1, __tvType
+	lbu $t0, 9($v0)
+	sw $t0, 0($v1)
+
 # setup the stack pointer
 	la $sp, _stack_top
 # call main

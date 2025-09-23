@@ -35,7 +35,7 @@ $link $linkFlags ./build/main.o ./build/boot.o -o ./build/main.elf -Map ./build/
 # $n64tool -l 0x80000400 -o ./build/main.z64 ./build/main.bin
 $n64tool --toc --output ./build/main.z64 --align 256 ./build/main.elf --align 8
 
-$objcopy -I binary -O binary --reverse-bytes=2 ./build/main.z64 ./build/main.v64
+# $objcopy -I binary -O binary --reverse-bytes=2 ./build/main.z64 ./build/main.v64
 
 echo "\ndone."
 
