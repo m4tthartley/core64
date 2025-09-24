@@ -92,12 +92,12 @@ char* GetExcCodeName(uint8_t code)
 char* GetInterruptName(uint8_t code)
 {
 	switch (code) {
-		case MI_INTERRUPT_SP: return "Mi_InterruptSp";
-		case MI_INTERRUPT_SI: return "Mi_InterruptSi";
-		case MI_INTERRUPT_AI: return "Mi_InterruptAi";
-		case MI_INTERRUPT_VI: return "Mi_InterruptVi";
-		case MI_INTERRUPT_PI: return "Mi_InterruptPi";
-		case MI_INTERRUPT_DP: return "Mi_InterruptDp";
+		case MI_INTERRUPT_SP: return "Mi_Interrupt_Sp";
+		case MI_INTERRUPT_SI: return "Mi_Interrupt_Si";
+		case MI_INTERRUPT_AI: return "Mi_Interrupt_Ai";
+		case MI_INTERRUPT_VI: return "Mi_Interrupt_Vi";
+		case MI_INTERRUPT_PI: return "Mi_Interrupt_Pi";
+		case MI_INTERRUPT_DP: return "Mi_Interrupt_Dp";
 
 		default: return "Unknown Interrupt";
 	}
@@ -210,12 +210,17 @@ void ExceptionHandler(interruptframe_t* frame)
 	// }
 }
 
-void UnhandledInterrupt()
+void UnhandledInterrupt(uint8_t type)
 {
 	char str[256];
 	sprint(str, 256, "Unhandled Interrupt");
-	int size = strsize(str) * 6;
-	DrawFontStringWithBG(N64Font, str, 320/2 - (size/2), 240/2);
+	int x = 320/2 - (strsize(str)*6 / 2);
+	int y = 240/2;
+	DrawFontStringWithBG(N64Font, str, x, y);
+
+	sprint(str, 256, GetInterruptName(type));
+	x = 320/2 - (strsize(str)*6 / 2);
+	DrawFontStringWithBG(N64Font, str, x, y + 10);
 
 	for (;;);
 }
@@ -231,6 +236,6 @@ void InterruptHandler()
 		return;
 	}
 
-	UnhandledInterrupt();
+	UnhandledInterrupt(type);
 }
 

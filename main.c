@@ -325,7 +325,7 @@ int main()
 		uint32_t sx0 = 0<<2;
 		uint32_t sy0 = 0<<2;
 		uint32_t sx1 = 320<<2;
-		uint32_t sy1 = 240<<2;
+		uint32_t sy1 = 288<<2;
 		cmd.word0 = (0x2D<<24) | (sx0<<12) | (sy0);
 		cmd.word1 = (sx1<<12) | (sy1);
 		// commandList[i++] = *(uint64_t*)&cmd;
@@ -344,7 +344,7 @@ int main()
 		uint32_t x0 = 0<<2;
 		uint32_t y0 = 0<<2;
 		uint32_t x1 = 320<<2;
-		uint32_t y1 = 240<<2;
+		uint32_t y1 = 288<<2;
 		cmd.word0 = (0x36<<24) | (x1<<12) | (y1);
 		cmd.word1 = (x0<<12) | (y0);
 		// commandList[i++] = *(uint64_t*)&cmd;
@@ -443,9 +443,11 @@ int main()
 		// for (int idx=0; idx<320*240; ++idx) {
 		// 	fb[idx] = 0x0;
 		// }
-		fb[pixel] = 0xFFFF;
-		++pixel;
-		pixel %= (320*240);
+		for (int x=0; x<16; ++x) {
+			fb[pixel] = 0xFFFF;
+			++pixel;
+			pixel %= (320*240);
+		}
 
 		// char str[64];
 		// sprint(str, 64, "dp current: %32x", *DP_CURRENT);

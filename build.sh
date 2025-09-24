@@ -12,11 +12,11 @@ fontpacker ./_resources/n64fontwide.bmp -o ./_resources/n64fontwide.h -name N64F
 
 compile=/opt/libdragon/bin/mips64-elf-gcc
 link=/opt/libdragon/bin/mips64-elf-ld
-objcopy=/opt/libdragon/bin/mips64-elf-objcopy
+# objcopy=/opt/libdragon/bin/mips64-elf-objcopy
 
 n64tool=/opt/libdragon/bin/n64tool
-n64crc=/opt/libdragon/bin/chksum64
-n64elfcompress=/opt/libdragon/bin/n64elfcompress
+# n64crc=/opt/libdragon/bin/chksum64
+# n64elfcompress=/opt/libdragon/bin/n64elfcompress
 
 flags="-c -g3 -O2 -G 0 -MMD -nostdlib -nostartfiles -ffreestanding -nodefaultlibs -fno-builtin-memset"
 linkFlags="-T n64/linker.ld -nostdlib"
@@ -33,7 +33,10 @@ $link $linkFlags ./build/main.o ./build/boot.o -o ./build/main.elf -Map ./build/
 # $n64elfcompress -o ./build/ -c 1 ./build/main.elf
 
 # $n64tool -l 0x80000400 -o ./build/main.z64 ./build/main.bin
-$n64tool --toc --output ./build/main.z64 --align 256 ./build/main.elf --align 8
+$n64tool --toc --output "./build/main(Europe).z64" --align 256 ./build/main.elf --align 8
+
+# Apply Europe region code to rom header
+printf "\x50" | dd of="./build/main(Europe).z64" bs=1 seek=62 count=1 conv=notrunc
 
 # $objcopy -I binary -O binary --reverse-bytes=2 ./build/main.z64 ./build/main.v64
 

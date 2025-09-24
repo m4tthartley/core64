@@ -36,6 +36,7 @@ typedef struct {
 } bootinfo_t;
 
 uint32_t burstDefaultValues[] = {
+	// /*PAL*/ 0x03E52239,
 	/*PAL*/ 0x0404233A,
 	/*NTSC*/ 0x03E52239,
 	/*MPAL*/ 0x03E52239,
@@ -71,12 +72,18 @@ uint32_t hvideoEnd[] = {
 };
 
 uint32_t vvideoStart[] = {
-	/*PAL*/ 0x05F,
+	// /*PAL*/ 144,
+	// /*PAL*/ 0x02A,
+	// /*PAL*/ 0x05F,
+	/*PAL*/ 0x05F - 48,
 	/*NTSC*/ 0x025,
 	/*MPAL*/ 0x025,
 };
 uint32_t vvideoEnd[] = {
-	/*PAL*/ 0x239,
+	// /*PAL*/ 431,
+	// /*PAL*/ 0x26A,
+	// /*PAL*/ 0x239,
+	/*PAL*/ 0x239 + 48,
 	/*NTSC*/ 0x1FF,
 	/*MPAL*/ 0x1FF,
 };
@@ -117,7 +124,12 @@ void InitDefaultVI()
 	// viregs[VI_XSCALE] = 0x00000200;
 	// viregs[VI_YSCALE] = 0x00000400;
 	viregs[VI_XSCALE] = ((1024*320) + 320) / 640;
-	viregs[VI_YSCALE] = ((1024*240) + 120) / 240;
+	// viregs[VI_YSCALE] = ((1024*240) + 120) / 240;
+	viregs[VI_YSCALE] = 1 << 10;
+
+	// 1024 = 1.0000000000
+	// viregs[VI_YSCALE] = 1024 * (240.0f / 288.0f);
+	// viregs[VI_YSCALE] = 820;
 	
 	// Enable VI interrupt
 	viregs[VI_INTLINE] = 240;
