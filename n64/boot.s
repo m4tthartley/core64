@@ -3,7 +3,7 @@
 ##  Copyright 2025 GiantJelly. All rights reserved.
 ##
 
-#include "system.h"
+#include "n64def.h"
 
 #include "exception.s"
 
@@ -86,6 +86,13 @@ _deliberate_error:
 	# li $t1, 1
 	# add $t2, $t0, $t1
 
+	jr $ra
+	nop
+
+
+_GetClock:
+	.globl _GetClock
+	mfc0 $v0, C0_COUNT
 	jr $ra
 	nop
 

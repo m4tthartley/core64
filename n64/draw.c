@@ -5,7 +5,8 @@
 
 #include <stdint.h>
 
-#include "system.h"
+#include "n64def.h"
+#include "core64.h"
 
 
 void BlitFontTexture()
@@ -55,7 +56,7 @@ void DrawFontGlyphWithBG(uint32_t* font, uint8_t glyph, int x, int y)
 
 void DrawFontString(uint32_t* font, char* str, int x, int y)
 {
-	int len = strlen(str);
+	int len = strsize(str);
 	for (int idx=0; idx<len; ++idx) {
 		uint8_t c = str[idx];
 		if (c >= 'a' && c <= 'z') {
@@ -67,7 +68,7 @@ void DrawFontString(uint32_t* font, char* str, int x, int y)
 
 void DrawFontStringWithBG(uint32_t* font, char* str, int x, int y)
 {
-	int len = strlen(str);
+	int len = strsize(str);
 	for (int idx=0; idx<len; ++idx) {
 		uint8_t c = str[idx];
 		if (c >= 'a' && c <= 'z') {

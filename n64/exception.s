@@ -3,7 +3,7 @@
 ##  Copyright 2025 GiantJelly. All rights reserved.
 ##
 
-#include "system.h"
+#include "n64def.h"
 
 
 .extern ExceptionHandler
@@ -90,6 +90,7 @@ interupt_handler:
 	mfc0 $t5, C0_CAUSE
 	mfc0 $t6, C0_EPC
 	mfc0 $t7, C0_BADVADDR
+	nop
 
 	# store info in exception frame structure
 	sw $t4, __EF_STATUS($sp)
@@ -129,7 +130,7 @@ interrupt:
 	# check for timing interrupt
 	lw $t0, __EF_CAUSE($sp)
 	andi $t0, $t0, 0x8000
-	bnez $t0, InterruptReset
+	bnez $t0, InterruptTiming
 	nop
 
 	# check for cart interrupt
@@ -143,10 +144,27 @@ interrupt:
 	nop
 
 InterruptReset:
+	addiu $sp, $sp, -32
+	jal HandleInterrupt_Reset
+	nop
+	addiu $sp, $sp, 32
+
 InterruptTiming:
+	# clear timer interrupt
+	mfc0 $t0, C0_COMPARE
+	mtc0 $t0, C0_COMPARE
+
+	addiu $sp, $sp, -32
+	jal HandleInterrupt_Timer
+	nop
+	addiu $sp, $sp, 32
+
+	j interrupt_return
+	nop
+
 InterruptCart:
 	addiu $sp, $sp, -32 # C functions may use 32bytes of stack as scratch space
-	jal UnhandledInterrupt
+	jal HandleInterrupt_Cart
 	nop
 	addiu $sp, $sp, 32
 
@@ -183,10 +201,11 @@ InterruptMI:
 	# addiu $sp, $sp, 32
 
 	addiu $sp, $sp, -32 # C functions may use 32bytes of stack as scratch space
-	jal InterruptHandler
+	jal HandleInterrupt_MI
 	nop
 	addiu $sp, $sp, 32
 
+interrupt_return:
 	# restore status register
 	# lw $sp, __EF_SP($sp)
 	lw $t0, __EF_STATUS($sp)

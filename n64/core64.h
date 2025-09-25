@@ -7,17 +7,23 @@
 #define CORE64_H
 
 #include <stdint.h>
+#include <stdarg.h>
 
 
 // UTIL
 #define assert(exp) if (!(exp)) { DrawFontStringWithBG(N64Font, "AssertionFired", 320/2-7, 10); (*(volatile int*)0)=0; }
-
 // #define swap(a, b) a=b-a; b=b-a; a=b+a;
 #define swap(a, b) { typeof(a) __tmp=a; a=b; b=__tmp; }
+
+// SYSTEM
+void Log(char* str, ...);
+void UpdateLogs();
+uint32_t GetDeltaTime();
 
 // PRINT
 uint32_t strsize(char* str);
 int sprint(char* buf, int len, char* fmt, ...);
+int vsprint(char* buf, int len, char* fmt, va_list args);
 
 // VIDEO
 void HandleVideoInterrupt();
@@ -33,6 +39,9 @@ void DrawFontStringWithBG(uint32_t* font, char* str, int x, int y);
 // FONTS
 #include "../_resources/n64font.h"
 #include "../_resources/n64fontwide.h"
+
+// ASM
+uint32_t _GetClock();
 
 
 #endif

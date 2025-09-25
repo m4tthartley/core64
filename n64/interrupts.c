@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #include "core64.h"
-#include "system.h"
+#include "n64def.h"
 
 
 // extern volatile uint32_t __viInterruptCounter;
@@ -210,7 +210,7 @@ void ExceptionHandler(interruptframe_t* frame)
 	// }
 }
 
-void UnhandledInterrupt(uint8_t type)
+void UnhandledInterrupt(uint32_t type)
 {
 	char str[256];
 	sprint(str, 256, "Unhandled Interrupt");
@@ -218,14 +218,58 @@ void UnhandledInterrupt(uint8_t type)
 	int y = 240/2;
 	DrawFontStringWithBG(N64Font, str, x, y);
 
-	sprint(str, 256, GetInterruptName(type));
+	sprint(str, 256, "%s  0x%32x", GetInterruptName(type & 0xFF), type);
 	x = 320/2 - (strsize(str)*6 / 2);
 	DrawFontStringWithBG(N64Font, str, x, y + 10);
+
+	sprint(str, 256, "MI_INTERRUPT  0x%32x", ((uint32_t*)MI_BASE)[MI_INTERRUPT]);
+	x = 320/2 - (strsize(str)*6 / 2);
+	DrawFontStringWithBG(N64Font, str, x, y + 20);
+
+	sprint(str, 256, "MI_INTERRUPT_MASK  0x%32x", ((uint32_t*)MI_BASE)[MI_INTERRUPT_MASK]);
+	x = 320/2 - (strsize(str)*6 / 2);
+	DrawFontStringWithBG(N64Font, str, x, y + 30);
 
 	for (;;);
 }
 
-void InterruptHandler()
+void HandleInterrupt_Reset()
+{
+	char str[256];
+	sprint(str, 256, "Reset Interrupt");
+	int x = 320/2 - (strsize(str)*6 / 2);
+	int y = 240/2;
+	DrawFontStringWithBG(N64Font, str, x, y);
+
+	for (;;);
+}
+
+void HandleInterrupt_Timer()
+{
+	char str[256];
+	sprint(str, 256, "Timing Interrupt");
+	int x = 320/2 - (strsize(str)*6 / 2);
+	int y = 240/2;
+	DrawFontStringWithBG(N64Font, str, x, y);
+
+	// for (;;);
+
+	Log("Timing Interrupt");
+	return;
+}
+
+void HandleInterrupt_Cart()
+{
+	char str[256];
+	sprint(str, 256, "Cart Interrupt");
+	int x = 320/2 - (strsize(str)*6 / 2);
+	int y = 240/2;
+	DrawFontStringWithBG(N64Font, str, x, y);
+
+	for (;;);
+}
+
+void HandleInterrupt_MI()
 {
 	uint32_t type = ((uint32_t*)MI_BASE)[MI_INTERRUPT] & ((uint32_t*)MI_BASE)[MI_INTERRUPT_MASK];
 
@@ -233,6 +277,12 @@ void InterruptHandler()
 		HandleVideoInterrupt();
 		ResetVideoCurrentLine();
 
+		return;
+	}
+
+	if (type & MI_INTERRUPT_PI) {
+		// TODO: Call a user defined callback here
+		Log("MI_INTERRUPT_PI");
 		return;
 	}
 

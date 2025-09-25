@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "system.h"
+#include "n64def.h"
 
 
 volatile uint32_t __viInterruptCounter = 0;
