@@ -134,13 +134,22 @@ void RDP_FillTriangle(rdpcmdlist_t* cmdlist, vecscreen_t* verts)
 	int32_t v0x = verts[0].x, v0y = verts[0].y;
 	int32_t v1x = verts[1].x, v1y = verts[1].y;
 	int32_t v2x = verts[2].x, v2y = verts[2].y;
-	int32_t dxldy = ((v2x-v1x)*0xFFFF) / ((v2y-v1y));
-	int32_t dxhdy = ((v2x-v0x)*0xFFFF) / ((v2y-v0y));
-	int32_t dxmdy = ((v1x-v0x)*0xFFFF) / ((v1y-v0y));
+	int32_t lydiff = v2y-v1y;
+	int32_t hydiff = v2y-v0y;
+	int32_t mydiff = v1y-v0y;
+	int32_t lxdiff = v2x-v1x;
+	int32_t hxdiff = v2x-v0x;
+	int32_t mxdiff = v1x-v0x;
+	int32_t dxldy = lydiff ? (lxdiff*0x10000) / lydiff : 0;
+	int32_t dxhdy = hydiff ? (hxdiff*0x10000) / hydiff : 0;
+	int32_t dxmdy = mydiff ? (mxdiff*0x10000) / mydiff : 0;
 
-	RDP_Write(cmdlist, (0b001<<27) | (1<<23/*lmajor*/) | ((v2y&0x3FFF)<<2));
-	RDP_Write(cmdlist, ((v1y&0x3FFF)<<2<<16) | ((v0y&0x3FFF)<<2));
+	bool leftMajor = (hxdiff * mydiff - mxdiff * hydiff) <= 0;
 
+	RDP_Write(cmdlist, (0b001<<27) | (leftMajor<<23/*lmajor*/) | ((v2y<<2)&0x3FFF));
+	RDP_Write(cmdlist, (((v1y<<2)&0x3FFF)<<16) | ((v0y<<2)&0x3FFF));
+
+	// low=high on the screen, high=low on the screen
 	// line from middle y to highest y
 	RDP_Write(cmdlist, (v1x<<16));
 	RDP_Write(cmdlist, dxldy);
@@ -152,6 +161,94 @@ void RDP_FillTriangle(rdpcmdlist_t* cmdlist, vecscreen_t* verts)
 	// line from lowest y to middle y
 	RDP_Write(cmdlist, (v0x<<16));
 	RDP_Write(cmdlist, dxmdy);
+}
+
+void RDP_FillTriangleWithShade(rdpcmdlist_t* cmdlist, vecscreen_t* verts)
+{
+	if (verts[0].y > verts[1].y) swap(verts[0], verts[1]);
+	if (verts[1].y > verts[2].y) swap(verts[1], verts[2]);
+	if (verts[0].y > verts[1].y) swap(verts[0], verts[1]);
+
+	rdpcommand_t cmd;
+	int32_t v0x = verts[0].x, v0y = verts[0].y;
+	int32_t v1x = verts[1].x, v1y = verts[1].y;
+	int32_t v2x = verts[2].x, v2y = verts[2].y;
+	int32_t lydiff = v2y-v1y;
+	int32_t hydiff = v2y-v0y;
+	int32_t mydiff = v1y-v0y;
+	int32_t lxdiff = v2x-v1x;
+	int32_t hxdiff = v2x-v0x;
+	int32_t mxdiff = v1x-v0x;
+	int32_t dxldy = lydiff ? (lxdiff*0x10000) / lydiff : 0;
+	int32_t dxhdy = hydiff ? (hxdiff*0x10000) / hydiff : 0;
+	int32_t dxmdy = mydiff ? (mxdiff*0x10000) / mydiff : 0;
+
+	bool leftMajor = (hxdiff * mydiff - mxdiff * hydiff) <= 0;
+
+	RDP_Write(cmdlist, (0b001<<27) | (1<<26/*shade*/) | (leftMajor<<23/*lmajor*/) | ((v2y<<2)&0x3FFF));
+	RDP_Write(cmdlist, (((v1y<<2)&0x3FFF)<<16) | ((v0y<<2)&0x3FFF));
+
+	// low=high on the screen, high=low on the screen
+	// line from middle y to highest y
+	RDP_Write(cmdlist, (v1x<<16));
+	RDP_Write(cmdlist, dxldy);
+
+	// line from lowest y to highest y
+	RDP_Write(cmdlist, (v0x<<16));
+	RDP_Write(cmdlist, dxhdy);
+
+	// line from lowest y to middle y
+	RDP_Write(cmdlist, (v0x<<16));
+	RDP_Write(cmdlist, dxmdy);
+
+	// SHADE
+	int r = 128;
+	int g = 128;
+	int b = 128;
+	int a = 255;
+
+	// int part of shade color at xh, floor(yh)
+	RDP_Write(cmdlist, (r<<16) | g);
+	RDP_Write(cmdlist, (b<<16) | a);
+
+	// int part change in shade along scanline
+	RDP_Write(cmdlist, 0);
+	RDP_Write(cmdlist, 0);
+
+	// fractional part of shade color at xh, floor(yh)
+	RDP_Write(cmdlist, 0);
+	RDP_Write(cmdlist, 0);
+
+	// fractional part change in shade along scanline
+	RDP_Write(cmdlist, 0);
+	RDP_Write(cmdlist, 0);
+
+	// int part change along major edge
+	RDP_Write(cmdlist, 0);
+	RDP_Write(cmdlist, 0);
+
+	// int part change each scanline
+	RDP_Write(cmdlist, 0);
+	RDP_Write(cmdlist, 0);
+
+	// frac part change along major edge
+	RDP_Write(cmdlist, 0);
+	RDP_Write(cmdlist, 0);
+
+	// frac part change each scanline
+	RDP_Write(cmdlist, 0);
+	RDP_Write(cmdlist, 0);
+}
+
+void RDP_FillRect(rdpcmdlist_t* cmdlist, int32_t x, int32_t y, int32_t width, int32_t height)
+{
+	uint32_t x0 = x<<2;
+	uint32_t y0 = y<<2;
+	uint32_t x1 = (x+width)<<2;
+	uint32_t y1 = (y+height)<<2;
+
+	RDP_Write(cmdlist, (0x36<<24) | (x1<<12) | (y1));
+	RDP_Write(cmdlist, (x0<<12) | (y0));
 }
 
 int main()
@@ -293,22 +390,6 @@ int main()
 			cmd.b0 = 0x29;
 			commandList[i++] = cmd.raw;
 	#endif
-
-			rdpcmdlist_t cmdlist = RDP_CmdList(commandList, sizeof(commandList));
-	
-			// Pipe Sync
-			cmd.word0 = 0x28000000;
-			cmd.word1 = 0;
-			// commandList[i++] = *(uint64_t*)&cmd;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
-	
-			// Set Other Modes
-			cmd.word0 = (0x2F<<24) | (0x3<<20);
-			cmd.word1 = 0;//0x00200000;
-			// commandList[i++] = *(uint64_t*)&cmd;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
 	
 			// Set Combine Mode
 			// cmd.word0 = (0x3C<<24) | (0xFF<<16);
@@ -319,19 +400,66 @@ int main()
 			// cmd.word0 = (0x3A<<24);
 			// cmd.word1 = 0xFF0000FF;
 			// commandList[i++] = *(uint64_t*)&cmd;
+
+			// int32_t v0x = 50, v0y = 50;
+			// int32_t v1x = 200, v1y = 150;
+			// int32_t v2x = 150, v2y = 200;
+			// int32_t dxldy = ((v2x-v1x)*0xFFFF/*<<16*/) / ((v2y-v1y));
+			// int32_t dxhdy = ((v2x-v0x)*0xFFFF/*<<16*/) / ((v2y-v0y));
+			// int32_t dxmdy = ((v1x-v0x)*0xFFFF/*<<16*/) / ((v1y-v0y));
+			// cmd.word0 = (0b001<<27) | (1<<23/*lmajor*/) | (v2y<<2);
+			// cmd.word1 = (v1y<<2<<16) | (v0y<<2);
+			// // commandList[i++] = *(uint64_t*)&cmd;
+			// RDP_Write(&cmdlist, cmd.word0);
+			// RDP_Write(&cmdlist, cmd.word1);
 	
+			// // line from middle y to highest y
+			// cmd.word0 = (v1x<<16);
+			// cmd.word1 = dxldy;
+			// // commandList[i++] = *(uint64_t*)&cmd;
+			// RDP_Write(&cmdlist, cmd.word0);
+			// RDP_Write(&cmdlist, cmd.word1);
+	
+			// // line from lowest y to highest y
+			// cmd.word0 = (v0x<<16);
+			// cmd.word1 = dxhdy;
+			// // commandList[i++] = *(uint64_t*)&cmd;
+			// RDP_Write(&cmdlist, cmd.word0);
+			// RDP_Write(&cmdlist, cmd.word1);
+	
+			// // line from lowest y to middle y
+			// cmd.word0 = (v0x<<16);
+			// cmd.word1 = dxmdy;
+			// // commandList[i++] = *(uint64_t*)&cmd;
+			// RDP_Write(&cmdlist, cmd.word0);
+			// RDP_Write(&cmdlist, cmd.word1);
+	
+
+			rdpcmdlist_t cmdlist = RDP_CmdList(commandList, sizeof(commandList));
+	
+			// Pipe Sync
+			cmd.word0 = 0x27000000;
+			cmd.word1 = 0;
+			RDP_Write(&cmdlist, cmd.word0);
+			RDP_Write(&cmdlist, cmd.word1);
+	
+			// Set Other Modes
+			cmd.word0 = (0x2F<<24) | (0x3<<20);
+			cmd.word1 = 0;//0x00200000;
+			RDP_Write(&cmdlist, cmd.word0);
+			RDP_Write(&cmdlist, cmd.word1);
+
 			// SetColorImage
 			cmd.word0 = (0x3F<<24) | (0<<21) | (2<<19) | (320-1);
 			cmd.word1 = VI_FRAMEBUFFERBASE & 0xFFFFFF;
-			// commandList[i++] = *(uint64_t*)&cmd;
 			RDP_Write(&cmdlist, cmd.word0);
 			RDP_Write(&cmdlist, cmd.word1);
 	
 			// Set Scissor
-			uint32_t sx0 = 0<<2;
-			uint32_t sy0 = 0<<2;
-			uint32_t sx1 = (320-1)<<2;
-			uint32_t sy1 = (288-1)<<2;
+			uint32_t sx0 = 1<<2;
+			uint32_t sy0 = 1<<2;
+			uint32_t sx1 = (320-2)<<2;
+			uint32_t sy1 = (288-2)<<2;
 			cmd.word0 = (0x2D<<24) | (sx0<<12) | (sy0);
 			cmd.word1 = (sx1<<12) | (sy1);
 			RDP_Write(&cmdlist, cmd.word0);
@@ -341,77 +469,81 @@ int main()
 			cmd.word0 = 0x37 << 24;
 			uint16_t color = (8<<1) | 1;
 			cmd.word1 = (color << 16) | color;
-			// commandList[i++] = *(uint64_t*)&cmd;
+			RDP_Write(&cmdlist, cmd.word0);
+			RDP_Write(&cmdlist, cmd.word1);
+
+			// // Pipe Sync
+			cmd.word0 = 0x27000000;
+			cmd.word1 = 0;
 			RDP_Write(&cmdlist, cmd.word0);
 			RDP_Write(&cmdlist, cmd.word1);
 	
-			// FillRect
-			uint32_t x0 = 0<<2;
-			uint32_t y0 = 0<<2;
-			uint32_t x1 = 320<<2;
-			uint32_t y1 = (288-1)<<2;
-			cmd.word0 = (0x36<<24) | (x1<<12) | (y1);
-			cmd.word1 = (x0<<12) | (y0);
-			// commandList[i++] = *(uint64_t*)&cmd;
+			// // FillRect
+			// uint32_t x0 = 100<<2;
+			// uint32_t y0 = 80<<2;
+			// uint32_t x1 = (320-1-100)<<2;
+			// uint32_t y1 = (288-1-100)<<2;
+			// cmd.word0 = (0x36<<24) | (x1<<12) | (y1);
+			// cmd.word1 = (x0<<12) | (y0);
+			// RDP_Write(&cmdlist, cmd.word0);
+			// RDP_Write(&cmdlist, cmd.word1);
+
+			int ox = 1;
+			int oy = 1;
+			int w = 320-2;
+			int h = 288-2;
+
+			RDP_FillRect(&cmdlist, ox, oy, w/2, h/2);
+			RDP_FillRect(&cmdlist, ox + w/2, oy, w/2, h/2);
+			RDP_FillRect(&cmdlist, ox, oy + h/2, w/2, h/2);
+			RDP_FillRect(&cmdlist, ox + w/2, oy + h/2, w/2, h/2);
+
+			// Sync between different draw operations
+			// Pipe Sync
+			cmd.word0 = 0x27000000;
+			cmd.word1 = 0;
 			RDP_Write(&cmdlist, cmd.word0);
 			RDP_Write(&cmdlist, cmd.word1);
 	
-			// SetFillColor
+			// // SetFillColor
 			cmd.word0 = 0x37 << 24;
 			uint16_t triColor = (31<<6) | (12<<1) | 1;
 			cmd.word1 = (triColor << 16) | triColor;
-			// commandList[i++] = *(uint64_t*)&cmd;
 			RDP_Write(&cmdlist, cmd.word0);
 			RDP_Write(&cmdlist, cmd.word1);
 	
-			// Fill Triangle
-			int32_t v0x = 50, v0y = 50;
-			int32_t v1x = 200, v1y = 150;
-			int32_t v2x = 150, v2y = 200;
-			int32_t dxldy = ((v2x-v1x)*0xFFFF/*<<16*/) / ((v2y-v1y));
-			int32_t dxhdy = ((v2x-v0x)*0xFFFF/*<<16*/) / ((v2y-v0y));
-			int32_t dxmdy = ((v1x-v0x)*0xFFFF/*<<16*/) / ((v1y-v0y));
-			cmd.word0 = (0b001<<27) | (1<<23/*lmajor*/) | (v2y<<2);
-			cmd.word1 = (v1y<<2<<16) | (v0y<<2);
-			// commandList[i++] = *(uint64_t*)&cmd;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
-	
-			// line from middle y to highest y
-			cmd.word0 = (v1x<<16);
-			cmd.word1 = dxldy;
-			// commandList[i++] = *(uint64_t*)&cmd;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
-	
-			// line from lowest y to highest y
-			cmd.word0 = (v0x<<16);
-			cmd.word1 = dxhdy;
-			// commandList[i++] = *(uint64_t*)&cmd;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
-	
-			// line from lowest y to middle y
-			cmd.word0 = (v0x<<16);
-			cmd.word1 = dxmdy;
-			// commandList[i++] = *(uint64_t*)&cmd;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
+			// // Fill Triangle
+			vecscreen_t vertsa[] = {
+				{50, 50},
+				{200, 150},
+				{150, 200},
+			};
+			RDP_FillTriangle(&cmdlist, vertsa);
 	
 			// more triangles
-			vecscreen_t verts[] = {
-				{200, 50},
-				{250, 75},
-				{225, 80},
-			};
-			RDP_FillTriangle(&cmdlist, verts);
-	
 			RDP_FillTriangle(&cmdlist, (vecscreen_t[]){
 				{140, 40},
 				{100, 60},
 				{120, 30},
 			});
+
+			{
+				// Shaded triangle
+				vecscreen_t verts[] = {
+					{200, 50},
+					{260, 100},
+					{230, 150},
+				};
+				RDP_FillTriangleWithShade(&cmdlist, verts);
+			}
+
+			// Pipe Sync
+			cmd.word0 = 0x27000000;
+			cmd.word1 = 0;
+			RDP_Write(&cmdlist, cmd.word0);
+			RDP_Write(&cmdlist, cmd.word1);
 			
+			// // SetFillColor
 			cmd.word0 = 0x37 << 24;
 			triColor = (31<<11) | (12<<1) | 1;
 			cmd.word1 = (triColor << 16) | triColor;
@@ -427,7 +559,18 @@ int main()
 				{x+50, y+50},
 				{x+45, y+5},
 			};
-			RDP_FillTriangle(&cmdlist, verts2);
+
+			// // RDP_FillTriangle(&cmdlist, verts2);
+			// // Test rect
+			RDP_FillRect(&cmdlist, x, y, 50, 50);
+			// x0 = x<<2;
+			// y0 = y<<2;
+			// x1 = (x+50)<<2;
+			// y1 = (y+50)<<2;
+			// cmd.word0 = (0x36<<24) | (x1<<12) | (y1);
+			// cmd.word1 = (x0<<12) | (y0);
+			// RDP_Write(&cmdlist, cmd.word0);
+			// RDP_Write(&cmdlist, cmd.word1);
 
 			x += speedx;
 			y += speedy;
@@ -435,20 +578,10 @@ int main()
 			if (x < 0) speedx = 2;
 			if (y+50 > 288) speedy = -2;
 			if (y < 0) speedy = 2;
-	
-			// debug text
-			// char str[64];
-			// sprint(str, 64, "dxldy: %i.%u", dxldy>>16, dxldy&0xFFFF);
-			// DrawFontStringWithBG(N64Font, str, 10, 10);
-			// sprint(str, 64, "dxhdy: %i.%u", dxhdy>>16, dxhdy&0xFFFF);
-			// DrawFontStringWithBG(N64Font, str, 10, 20);
-			// sprint(str, 64, "dxmdy: %i.%u", dxmdy>>16, dxmdy&0xFFFF);
-			// DrawFontStringWithBG(N64Font, str, 10, 30);
-	
-			// Sync
+
+			// Full Sync
 			cmd.word0 = 0x29000000;
 			cmd.word1 = 0;
-			// commandList[i++] = *(uint64_t*)&cmd;
 			RDP_Write(&cmdlist, cmd.word0);
 			RDP_Write(&cmdlist, cmd.word1);
 	
@@ -463,9 +596,6 @@ int main()
 	
 			while (*DP_CURRENT != *DP_END);
 	
-			// sprint(str, 64, "dp current: %32x", *DP_CURRENT);
-			// DrawFontStringWithBG(N64Font, str, 10, 50);
-
 			// TODO: Use interrupt
 			while (*DP_STATUS & (DP_STATUS_TMEM_BUSY | DP_STATUS_PIPE_BUSY));
 		}
@@ -515,6 +645,18 @@ int main()
 
 		sprint(str, 64, "clock: %u", deltaClocks / clocksPerMs);
 		DrawFontStringWithBG(N64Font, str, 10, 60);
+
+		static int x = 100;
+		static int y = 100;
+		static int speedx = 2;
+		static int speedy = 2;
+		DrawFontString(N64Font, "test", x, y);
+		x += speedx;
+		y += speedy;
+		if (x+50 > 320) speedx = -2;
+		if (x < 0) speedx = 2;
+		if (y+50 > 288) speedy = -2;
+		if (y < 0) speedy = 2;
 		
 		UpdateLogs();
 

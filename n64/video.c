@@ -105,7 +105,7 @@ void InitDefaultVI()
 	viregs[VI_CONTROL] = controlMode;
 	viregs[VI_ORIGIN] = VI_FRAMEBUFFERBASE;
 	viregs[VI_WIDTH] = 320*1;
-	// viregs[VI_INTLINE] = 2;//0x200;
+	viregs[VI_INTLINE] = 2;//0x200;
 	viregs[VI_CURRENTLINE] = 0;
 	// viregs[VI_BURST] = 0x03E52239;
 	viregs[VI_BURST] = burstDefaultValues[__tvType];
@@ -132,7 +132,7 @@ void InitDefaultVI()
 	// viregs[VI_YSCALE] = 820;
 	
 	// Enable VI interrupt
-	viregs[VI_INTLINE] = 240;
+	// viregs[VI_INTLINE] = 240;
 	EnableVideoInterrupts();
 }
 
