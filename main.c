@@ -52,6 +52,14 @@ uint32_t __deltaTime;
 #define DP_STATUS_WRITE_CMD_COUNTER_RESET 0x100
 #define DP_STATUS_WRITE_CLOCK_COUNTER_RESET 0x200
 
+#define RDP_COMB_COMBINED		0
+#define RDP_COMB_TEX0			1
+#define RDP_COMB_TEX1			2
+#define RDP_COMB_PRIMITIVE		3
+#define RDP_COMB_SHADE			4
+#define RDP_COMB_ENVIRONMENT	5
+#define RDP_COMB_ZERO			16 // dunno if this is right
+
 // uint64_t raw;
 // struct {
 // 	uint32_t w0;
@@ -81,7 +89,8 @@ typedef struct {
 uint64_t __attribute__((aligned(8))) commandList[64];
 // uint64_t* commandList = (uint64_t*)0xA0100000;
 
-void DataCacheWritebackInvalidate(volatile void* addr, uint32_t size)
+// TODO: Should this be volatile or not?
+void DataCacheWritebackInvalidate(void* addr, uint32_t size)
 {
 	int linesize = 16;
 	void* line = (void*)((unsigned long)addr & ~(linesize-1));
@@ -117,9 +126,8 @@ rdpcmdlist_t RDP_CmdList(void* buffer, uint32_t size)
 
 void RDP_Write(rdpcmdlist_t* cmdlist, uint32_t word)
 {
-
 	assert(cmdlist->cursor + 4 < cmdlist->bufferSize);
-	volatile uint32_t* buffer = (uint32_t*)((uint8_t*)cmdlist->buffer + cmdlist->cursor);
+	uint32_t* buffer = (uint32_t*)((uint8_t*)cmdlist->buffer + cmdlist->cursor);
 	*buffer = word;
 	cmdlist->cursor += 4;
 }
@@ -202,32 +210,40 @@ void RDP_FillTriangleWithShade(rdpcmdlist_t* cmdlist, vecscreen_t* verts)
 	RDP_Write(cmdlist, dxmdy);
 
 	// SHADE
-	int r = 128;
-	int g = 128;
-	int b = 128;
-	int a = 255;
+	int r = 0;
+	int g = 0;
+	int b = 0;
+	int a = 0;
 
 	// int part of shade color at xh, floor(yh)
-	RDP_Write(cmdlist, (r<<16) | g);
-	RDP_Write(cmdlist, (b<<16) | a);
+	RDP_Write(cmdlist, (64<<16) | 64);
+	RDP_Write(cmdlist, (64<<16) | 64);
 
 	// int part change in shade along scanline
-	RDP_Write(cmdlist, 0);
+	// int16_t change = -10;
+	// RDP_Write(cmdlist, ((uint32_t)change<<16) | change);
+	// RDP_Write(cmdlist, ((uint32_t)change<<16) | change);
+	RDP_Write(cmdlist, (4<<16));
 	RDP_Write(cmdlist, 0);
 
 	// fractional part of shade color at xh, floor(yh)
+	// RDP_Write(cmdlist, (10<<16) | 10);
+	// RDP_Write(cmdlist, (10<<16) | 10);
 	RDP_Write(cmdlist, 0);
 	RDP_Write(cmdlist, 0);
 
 	// fractional part change in shade along scanline
+	// RDP_Write(cmdlist, (((uint32_t)-1)<<16) | ((uint32_t)-1));
+	// RDP_Write(cmdlist, (((uint32_t)-1)<<16) | ((uint32_t)-1));
 	RDP_Write(cmdlist, 0);
 	RDP_Write(cmdlist, 0);
 
 	// int part change along major edge
-	RDP_Write(cmdlist, 0);
+	RDP_Write(cmdlist, (((uint32_t)-1)<<16));
 	RDP_Write(cmdlist, 0);
 
 	// int part change each scanline
+	// RDP_Write(cmdlist, (((uint32_t)2)<<16));
 	RDP_Write(cmdlist, 0);
 	RDP_Write(cmdlist, 0);
 
@@ -527,16 +543,6 @@ int main()
 				{120, 30},
 			});
 
-			{
-				// Shaded triangle
-				vecscreen_t verts[] = {
-					{200, 50},
-					{260, 100},
-					{230, 150},
-				};
-				RDP_FillTriangleWithShade(&cmdlist, verts);
-			}
-
 			// Pipe Sync
 			cmd.word0 = 0x27000000;
 			cmd.word1 = 0;
@@ -579,13 +585,49 @@ int main()
 			if (y+50 > 288) speedy = -2;
 			if (y < 0) speedy = 2;
 
+
+			// Pipe Sync
+			RDP_Write(&cmdlist, 0x27000000);
+			RDP_Write(&cmdlist, 0);
+
+			// Set Other Modes
+			RDP_Write(&cmdlist, (0x2F<<24) | (0x0<<20)); // 1cycle mode
+			RDP_Write(&cmdlist, 0);
+
+			// Set Primitive Color
+			RDP_Write(&cmdlist, 0x3A<<24);
+			RDP_Write(&cmdlist, 0xFF0350FF);
+
+			// Set Environment Color
+			RDP_Write(&cmdlist, 0x3B<<24);
+			RDP_Write(&cmdlist, 0xFFFFFFFF);
+
+			// Set Combine Mode
+			// RDP_Write(&cmdlist, (0x3C<<24) | (RDP_COMB_PRIMITIVE<<20) | (RDP_COMB_SHADE<<15) | (RDP_COMB_PRIMITIVE<<12) | (RDP_COMB_SHADE<<9));
+			// RDP_Write(&cmdlist, 0);
+			RDP_Write(&cmdlist, (0x3C<<24) | (RDP_COMB_PRIMITIVE<<20) | (RDP_COMB_SHADE<<15) | (RDP_COMB_PRIMITIVE<<5) | (RDP_COMB_SHADE<<0));
+			RDP_Write(&cmdlist, (8<<24) | (7<<6));//(RDP_COMB_PRIMITIVE<<12) | (RDP_COMB_SHADE<<9)
+
+			// Pipe Sync
+			RDP_Write(&cmdlist, 0x27000000);
+			RDP_Write(&cmdlist, 0);
+
+			// Shaded triangle
+			vecscreen_t verts[] = {
+				{200, 50},
+				{260, 100},
+				{230, 150},
+			};
+			RDP_FillTriangleWithShade(&cmdlist, verts);
+
+
 			// Full Sync
 			cmd.word0 = 0x29000000;
 			cmd.word1 = 0;
 			RDP_Write(&cmdlist, cmd.word0);
 			RDP_Write(&cmdlist, cmd.word1);
 	
-			DataCacheWritebackInvalidate(commandList, cmdlist.cursor);
+			DataCacheWritebackInvalidate(cmdlist.buffer, cmdlist.cursor);
 			uint32_t start = (unsigned long)commandList & 0x1FFFFFFF;
 			uint32_t end = start + cmdlist.cursor;
 			MemoryBarrier();
