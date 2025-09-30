@@ -7,6 +7,9 @@ set -e
 mkdir -p ./build
 rm -f ./build/*
 
+clang texturepacker.c $(coreconfig) -o ./build/texturepacker
+./build/texturepacker
+
 fontpacker ./_resources/n64font.bmp -o ./_resources/n64font.h -name N64FontSmall
 fontpacker ./_resources/n64fontwide.bmp -o ./_resources/n64fontwide.h -name N64Font
 

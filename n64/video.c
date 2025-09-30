@@ -9,10 +9,23 @@
 #include "n64def.h"
 
 
+typedef struct {
+	int16_t x, y;
+	int16_t width, height;
+} video_rect_t;
+
 volatile uint32_t __viInterruptCounter = 0;
 volatile uint32_t __viInterrupt = 0;
 
 extern volatile uint32_t __tvType;
+
+video_rect_t __resolution;
+// uint32_t __resolutionHeight;
+
+video_rect_t GetResolution()
+{
+	return __resolution;
+}
 
 inline void SetVIRegister(uint32_t reg, uint32_t value)
 {
@@ -100,6 +113,13 @@ void InitDefaultVI()
 	volatile uint32_t* viregs = (uint32_t*)VI_BASE;
 
 	// __tvType = 1;
+
+	__resolution.width = 320;
+	if (/*PAL*/1) {
+		__resolution.height = 288;
+	} else {
+		__resolution.height = 240;
+	}
 	
 	uint32_t controlMode = VI_COLOR_MODE_16 | VI_AA_DISABLED;
 	viregs[VI_CONTROL] = controlMode;

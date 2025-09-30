@@ -99,3 +99,12 @@ _GetClock:
 
 	.section .stack
 	.space 0x10000
+
+
+	.section .rodata
+	.globl texture_test_start
+	.globl texture_test_end
+	.align 4
+texture_test_start:
+	.incbin "./resources/test_texture.bin"
+texture_test_end:

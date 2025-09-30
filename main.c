@@ -156,6 +156,48 @@ typedef int16_t fixed12_4_t; // fixed point s12.4
 
 typedef union {
 	struct {
+		float x, y;
+	};
+	struct {
+		float u, v;
+	};
+} vec2_t;
+
+typedef union {
+	struct {
+		float x, y, z;
+	};
+	struct {
+		float r, g, b;
+	};
+	struct {
+		float u, v, w;
+	};
+} vec3_t;
+
+typedef union {
+	struct {
+		fixed32_t x, y, z;
+	};
+	struct {
+		fixed32_t r, g, b;
+	};
+	struct {
+		fixed32_t u, v, w;
+	};
+} vec3fx32_t;
+
+typedef union {
+	struct {
+		float x, y, z, w;
+	};
+	struct {
+		float r, g, b, a;
+	};
+} vec4_t;
+
+typedef union {
+	struct {
 		fixed32_t x, y, z, w;
 	};
 	struct {
@@ -172,27 +214,44 @@ typedef struct {
 	};
 } vec4u8_t;
 
-typedef struct {
-	float x, y;
-} vec2_t;
+vec3_t vec3(float x, float y, float z)
+{
+	return (vec3_t){x, y, z};
+}
+vec3_t vec3f(float f)
+{
+	return (vec3_t){f, f, f};
+}
+vec3_t add3(vec3_t a, vec3_t b)
+{
+	return (vec3_t){a.x+b.x, a.y+b.y, a.z+b.z};
+}
+vec3_t sub3(vec3_t a, vec3_t b)
+{
+	return (vec3_t){a.x-b.x, a.y-b.y, a.z-b.z};
+}
+vec3_t mul3(vec3_t a, vec3_t b)
+{
+	return (vec3_t){a.x*b.x, a.y*b.y, a.z*b.z};
+}
+vec3_t mul3f(vec3_t a, float f)
+{
+	return (vec3_t){a.x*f, a.y*f, a.z*f};
+}
+vec3_t div3(vec3_t a, vec3_t b)
+{
+	return (vec3_t){a.x/b.x, a.y/b.y, a.z/b.z};
+}
+vec3_t div3f(vec3_t a, float f)
+{
+	return (vec3_t){a.x/f, a.y/f, a.z/f};
+}
 
-typedef union {
-	struct {
-		float x, y, z;
-	};
-	struct {
-		float r, g, b;
-	};
-} vec3_t;
-
-typedef union {
-	struct {
-		float x, y, z, w;
-	};
-	struct {
-		float r, g, b, a;
-	};
-} vec4_t;
+vec3fx32_t vec3tofixed32(vec3_t v)
+{
+	v = mul3f(v, 65536.0f);
+	return (vec3fx32_t){ v.x, v.y, v.z };
+}
 
 vec4_t vec4(float x, float y, float z, float w)
 {
@@ -241,6 +300,7 @@ typedef struct {
 typedef struct {
 	vec2_t pos;
 	vec4_t color;
+	vec2_t texcoord;
 } rdp_vertex_t;
 
 typedef struct {
@@ -336,7 +396,7 @@ void RDP_FillTriangleWithShade(rdpcmdlist_t* cmdlist, rdp_vertex_t* verts)
 
 	bool leftMajor = (hxdiff * mydiff - mxdiff * hydiff) <= 0;
 
-	RDP_Write(cmdlist, (0b001<<27) | (1<<26/*shade*/) | (leftMajor<<23/*lmajor*/) | ((v2y<<2)&0x3FFF));
+	RDP_Write(cmdlist, (0b001<<27) | (1<<26/*shade*/) | (1<<25/*texture*/) | (leftMajor<<23/*lmajor*/) | ((v2y<<2)&0x3FFF));
 	RDP_Write(cmdlist, (((v1y<<2)&0x3FFF)<<16) | ((v0y<<2)&0x3FFF));
 
 	// low=high on the screen, high=low on the screen
@@ -509,6 +569,51 @@ void RDP_FillTriangleWithShade(rdpcmdlist_t* cmdlist, rdp_vertex_t* verts)
 	// // frac part change each scanline
 	// RDP_Write(cmdlist, 0);
 	// RDP_Write(cmdlist, 0);
+
+	// TEXTURE COORDINATES
+
+	vec3_t texData0 = vec3(v0.texcoord.u, v0.texcoord.v, 1.0f);
+	vec3_t texData1 = vec3(v1.texcoord.u, v1.texcoord.v, 1.0f);
+	vec3_t texData2 = vec3(v2.texcoord.u, v2.texcoord.v, 1.0f);
+	vec3_t highEdgeTexDelta = sub3(texData1, texData0);
+	vec3_t longEdgeTexDelta = sub3(texData2, texData0);
+
+	vec3_t xTexCoef = div3f(sub3(mul3f(highEdgeTexDelta, longDiffY), mul3f(longEdgeTexDelta, highDiffY)), determinant);
+	vec3_t yTexCoef = div3f(sub3(mul3f(longEdgeTexDelta, highDiffX), mul3f(highEdgeTexDelta, longDiffX)), determinant);
+	vec3_t edgeTexCoef = add3(yTexCoef, mul3f(xTexCoef, (longDiffX/longDiffY)));
+
+	vec3fx32_t xTexCoefFixed = vec3tofixed32(xTexCoef);
+	vec3fx32_t yTexCoefFixed = vec3tofixed32(yTexCoef);
+	vec3fx32_t edgeTexCoefFixed = vec3tofixed32(edgeTexCoef);
+
+	uint32_t u = ((uint32_t)v0.texcoord.u) & 0xFF;
+	uint32_t v = ((uint32_t)v0.texcoord.v) & 0xFF;
+	uint32_t w = ((uint32_t)1.0f) & 0xFF;
+
+	// int part at xh, floor(yh)
+	RDP_Write(cmdlist, (u<<16) | v);
+	RDP_Write(cmdlist, (w<<16));
+	// int part change along scanline
+	RDP_Write(cmdlist, (xTexCoefFixed.u&0xFFFF0000) | ((xTexCoefFixed.v>>16)&0xFFFF));
+	RDP_Write(cmdlist, (xTexCoefFixed.w&0xFFFF0000));
+	// fractional part at xh, floor(yh)
+	RDP_Write(cmdlist, 0);
+	RDP_Write(cmdlist, 0);
+	// fractional part along scanline
+	RDP_Write(cmdlist, (xTexCoefFixed.u<<16) | (xTexCoefFixed.v&0xFFFF));
+	RDP_Write(cmdlist, (xTexCoefFixed.w<<16));
+	// int part change along major edge
+	RDP_Write(cmdlist, (edgeTexCoefFixed.u&0xFFFF0000) | ((edgeTexCoefFixed.v>>16)&0xFFFF));
+	RDP_Write(cmdlist, (edgeTexCoefFixed.w&0xFFFF0000));
+	// int part change each scanline
+	RDP_Write(cmdlist, (yTexCoefFixed.u&0xFFFF0000) | ((yTexCoefFixed.v>>16)&0xFFFF));
+	RDP_Write(cmdlist, (yTexCoefFixed.w&0xFFFF0000));
+	// frac part change along major edge
+	RDP_Write(cmdlist, (edgeTexCoefFixed.u<<16) | (edgeTexCoefFixed.v&0xFFFF));
+	RDP_Write(cmdlist, (edgeTexCoefFixed.w<<16));
+	// frac part change each scanline
+	RDP_Write(cmdlist, (yTexCoefFixed.u<<16) | (yTexCoefFixed.v&0xFFFF));
+	RDP_Write(cmdlist, (yTexCoefFixed.w<<16));
 }
 
 void RDP_FillRect(rdpcmdlist_t* cmdlist, int32_t x, int32_t y, int32_t width, int32_t height)
@@ -522,11 +627,19 @@ void RDP_FillRect(rdpcmdlist_t* cmdlist, int32_t x, int32_t y, int32_t width, in
 	RDP_Write(cmdlist, (x0<<12) | (y0));
 }
 
+extern uint8_t texture_test_start[];
+extern uint8_t texture_test_end[];
+
+extern uint8_t __heap_start[];
+extern uint8_t __heap_end[];
+
 int main()
 {
 	lastFrameTime = _GetClock();
 
 	Log("System Started");
+
+	CopyMemory(__heap_start, texture_test_start, 32*32*4);
 
 	// BOOT TESTING
 #if 0
@@ -857,6 +970,23 @@ int main()
 			RDP_Write(&cmdlist, 0x3B<<24);
 			RDP_Write(&cmdlist, 0xFFFFFFFF);
 
+			// Set Texture Image
+			RDP_Write(&cmdlist, (0x3D<<24) | (0<<21) | (3<<19) | (32-1));
+			RDP_Write(&cmdlist, ((uintptr_t)__heap_start&0x1FFFFFFF) >> 3);
+
+			// Set Tile
+			uint32_t line = (32*32 + 63) / 64;
+			RDP_Write(&cmdlist, (0x35<<24) | (0<<21) | (3<<19) | (line<<9) | (0));
+			RDP_Write(&cmdlist, (0<<24));
+
+			// Load Tile
+			RDP_Write(&cmdlist, (0x34<<24) | (0<<12) | (0<<0));
+			RDP_Write(&cmdlist, (0<<24) | (32<<12) | (32<<0));
+
+			// Load Sync
+			RDP_Write(&cmdlist, 0x26000000);
+			RDP_Write(&cmdlist, 0);
+
 			// Set Combine Mode
 			// RDP_Write(&cmdlist, (0x3C<<24) | (RDP_COMB_PRIMITIVE<<20) | (RDP_COMB_SHADE<<15) | (RDP_COMB_PRIMITIVE<<12) | (RDP_COMB_SHADE<<9));
 			// RDP_Write(&cmdlist, 0);
@@ -866,7 +996,7 @@ int main()
 			// uint64_t combine = RDP_CombinerRGB(RDP_COMB_PRIMITIVE, 0, RDP_COMB_SHADE, 0);
 			// RDP_Write(&cmdlist, (0x3C<<24) | (combine >> 32));
 			// RDP_Write(&cmdlist, (combine & 0xFFFFFFFF));
-			RDP_SetCombineMode(&cmdlist, RDP_CombinerRGB(RDP_COMB_PRIMITIVE, 0, RDP_COMB_SHADE, 0));
+			RDP_SetCombineMode(&cmdlist, RDP_CombinerRGB(RDP_COMB_TEX0, 0, RDP_COMB_PRIMITIVE, 0));
 
 			// Pipe Sync
 			RDP_Write(&cmdlist, 0x27000000);
@@ -879,9 +1009,9 @@ int main()
 			// 	{{230, 150}, {30, 10, 200, 255}},
 			// };
 			rdp_vertex_t verts[] = {
-				{{200, 50}, {0, 0, 255, 255}},
-				{{260, 100}, {255, 0, 0, 255}},
-				{{230, 150}, {0, 255, 0, 255}},
+				{{200, 50}, {0, 0, 255, 255}, {0.0f, 0.0f}},
+				{{260, 100}, {255, 0, 0, 255}, {1.0f, 0.0f}},
+				{{230, 150}, {0, 255, 0, 255}, {1.0f, 1.0f}},
 			};
 			RDP_FillTriangleWithShade(&cmdlist, verts);
 
@@ -953,6 +1083,11 @@ int main()
 		sprint(str, 64, "clock: %u", deltaClocks / clocksPerMs);
 		DrawFontStringWithBG(N64Font, str, 10, 60);
 
+		sprint(str, 64, "texture addr: %32x -> %32x", (uintptr_t)texture_test_start, (uintptr_t)texture_test_end);
+		DrawFontStringWithBG(N64Font, str, 10, 80);
+		sprint(str, 64, "heap: %32x -> %32x", (uintptr_t)__heap_start, (uintptr_t)__heap_end);
+		DrawFontStringWithBG(N64Font, str, 10, 90);
+
 		static int x = 100;
 		static int y = 100;
 		static int speedx = 2;
@@ -964,6 +1099,8 @@ int main()
 		if (x < 0) speedx = 2;
 		if (y+50 > 288) speedy = -2;
 		if (y < 0) speedy = 2;
+
+		BlitTexture(__heap_start, 100, 100, 0, 0, 32, 32);
 		
 		UpdateLogs();
 
