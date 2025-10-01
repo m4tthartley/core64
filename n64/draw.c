@@ -25,15 +25,17 @@ void BlitTexture(void* textureData, int x, int y, int u, int v, int w, int h)
 	video_rect_t res = GetResolution();
 	volatile uint16_t* fb = (void*)VI_FRAMEBUFFERBASE;
 
-	uint32_t* tex = textureData;
+	// uint32_t* tex = textureData;
+	uint16_t* tex = textureData;
 
 	for (int yt=0; yt<h; ++yt) {
 		for (int xt=0; xt<w; ++xt) {
-			uint32_t texel = tex[((v+yt)*32) + u + xt];
-			uint32_t r = (texel>>8) & 31;
-			uint32_t g = (texel>>16) & 31;
-			uint32_t b = (texel>>24) & 31;
-			fb[(y+yt) * res.width + (x+xt)] = (r<<11) | (g<<6) | (b<<1);
+			uint16_t texel = tex[((v+yt)*32) + u + xt];
+			// uint32_t r = (texel>>8) & 31;
+			// uint32_t g = (texel>>16) & 31;
+			// uint32_t b = (texel>>24) & 31;
+			// fb[(y+yt) * res.width + (x+xt)] = (r<<11) | (g<<6) | (b<<1);
+			fb[(y+yt) * res.width + (x+xt)] = texel;
 		}
 	}
 }

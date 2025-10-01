@@ -9,7 +9,7 @@
 
 int main()
 {
-	char* bmpFilename = "./resources/test_texture.bmp";
+	char* bmpFilename = "./resources/test3.bmp";
 	print("Packing texture (%s) \n", bmpFilename);
 
 	file_t file = sys_open(bmpFilename);
@@ -25,8 +25,32 @@ int main()
 	void* outputMemory = malloc(size);
 	bmp_load_rgba32(bmpData, outputMemory);
 
+	int numPixels = bmpInfo.width*bmpInfo.height;
+
+	uint32_t* src = outputMemory;
+	uint16_t* tex = malloc(bmpInfo.width*bmpInfo.height*sizeof(uint16_t));
+	for (int pixel=0; pixel<bmpInfo.width*bmpInfo.height; ++pixel) {
+		// uint16_t r = (src[pixel]>>24) & 31;
+		// uint16_t g = (src[pixel]>>16) & 31;
+		// uint16_t b = (src[pixel]>>8) & 31;
+		uint16_t r = (((src[pixel]>>16) & 0xFF) / 8) & 31;
+		uint16_t g = (((src[pixel]>>8) & 0xFF) / 8) & 31;
+		uint16_t b = (((src[pixel]>>0) & 0xFF) / 8) & 31;
+		tex[pixel] = (r<<11) | (g<<6) | (b<<1) | 1;
+		// tex[pixel] =  (31<<1) ;
+	}
+
+	// Swap bytes to big endian
+	for (int pi=0; pi<numPixels; ++pi) {
+		uint8_t* bytes = (uint8_t*)(tex + pi);
+		swap(bytes[0], bytes[1]);
+		// uint8_t t = bytes[0];
+		// bytes[0]
+		tex[pi] = *((uint16_t*)bytes);
+	}
+
 	file_t outputFile = sys_create("./resources/test_texture.bin");
-	sys_write(outputFile, 0, outputMemory, size);
+	sys_write(outputFile, 0, tex, bmpInfo.width*bmpInfo.height*sizeof(uint16_t));
 	sys_close(outputFile);
 
 	// output file

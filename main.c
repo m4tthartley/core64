@@ -327,6 +327,15 @@ void RDP_Write(rdpcmdlist_t* cmdlist, uint32_t word)
 
 void RDP_SetCombineMode(rdpcmdlist_t* cmdlist, uint64_t combinerMask)
 {
+	// RDP_Write(&cmdlist, (0x3C<<24) | (RDP_COMB_PRIMITIVE<<20) | (RDP_COMB_SHADE<<15) | (RDP_COMB_PRIMITIVE<<12) | (RDP_COMB_SHADE<<9));
+	// RDP_Write(&cmdlist, 0);
+
+	// RDP_Write(&cmdlist, (0x3C<<24) | (RDP_COMB_PRIMITIVE<<20) | (RDP_COMB_SHADE<<15) | (RDP_COMB_PRIMITIVE<<5) | (RDP_COMB_SHADE<<0));
+	// RDP_Write(&cmdlist, (8<<24) | (7<<6));//(RDP_COMB_PRIMITIVE<<12) | (RDP_COMB_SHADE<<9)
+	// uint64_t combine = RDP_CombinerRGB(RDP_COMB_PRIMITIVE, 0, RDP_COMB_SHADE, 0);
+	// RDP_Write(&cmdlist, (0x3C<<24) | (combine >> 32));
+	// RDP_Write(&cmdlist, (combine & 0xFFFFFFFF));
+
 	RDP_Write(cmdlist, (0x3C<<24) | (combinerMask >> 32));
 	RDP_Write(cmdlist, (combinerMask & 0xFFFFFFFF));
 }
@@ -639,7 +648,24 @@ int main()
 
 	Log("System Started");
 
-	CopyMemory(__heap_start, texture_test_start, 32*32*4);
+	if (/*convert to 16bit*/1) {
+		// uint32_t* image = (uint32_t*)texture_test_start;
+		// uint16_t* heap = (uint16_t*)__heap_start;
+		// for (int pxl=0; pxl<32*32; ++pxl) {
+		// 	int a = ((image[pxl]>>24) & 0xFF) / 8;
+		// 	int r = ((image[pxl]>>16) & 0xFF) / 8;
+		// 	int g = ((image[pxl]>>8) & 0xFF) / 8;
+		// 	int b = ((image[pxl]>>0) & 0xFF) / 8;
+		// 	// heap[pxl] = (r<<11) | (g<<6) | (b<<1) | 1;
+		// 	heap[pxl] = 0xF800;
+		// }
+	} else {
+		// CopyMemory(__heap_start, texture_test_start, 32*32*4);
+	}
+
+	CopyMemory(__heap_start, texture_test_start, 32*32*2);
+	DataCacheWritebackInvalidate(__heap_start, 32*32*2);
+	// DataCacheWritebackInvalidate(texture_test_start, 32*32*2);
 
 	// BOOT TESTING
 #if 0
@@ -970,50 +996,72 @@ int main()
 			RDP_Write(&cmdlist, 0x3B<<24);
 			RDP_Write(&cmdlist, 0xFFFFFFFF);
 
+			uint32_t tileWidth = 8;
+			uint32_t tileHeight = 8;
+
 			// Set Texture Image
-			RDP_Write(&cmdlist, (0x3D<<24) | (0<<21) | (3<<19) | (32-1));
-			RDP_Write(&cmdlist, ((uintptr_t)__heap_start&0x1FFFFFFF) >> 3);
+			RDP_Write(&cmdlist, (0x3D<<24) | (/*format*/0<<21) | (/*size*/2<<19) | (/*width*/32-1));
+			RDP_Write(&cmdlist, (((uintptr_t)__heap_start&0x1FFFFFFF)|0xA0000000) >> 3);
 
 			// Set Tile
-			uint32_t line = (32*32 + 63) / 64;
-			RDP_Write(&cmdlist, (0x35<<24) | (0<<21) | (3<<19) | (line<<9) | (0));
-			RDP_Write(&cmdlist, (0<<24));
+			uint32_t line = 32*2 / 8;
+			RDP_Write(&cmdlist, (0x35<<24) | (/*format*/0<<21) | (/*size*/2<<19) | (line<<9) | (/*tmem addr*/0));
+			RDP_Write(&cmdlist, (/*tile*/7<<24));
 
 			// Load Tile
-			RDP_Write(&cmdlist, (0x34<<24) | (0<<12) | (0<<0));
-			RDP_Write(&cmdlist, (0<<24) | (32<<12) | (32<<0));
+			RDP_Write(&cmdlist, (0x34<<24) | (/*upper left S*/0<<12) | (/*upper left T*/0<<0));
+			RDP_Write(&cmdlist, (/*tile*/7<<24) | (/*lower right S*/((tileWidth-1)<<2)<<12) | (/*lower right T*/((tileHeight-1)<<2)<<0));
+			// // Load Block
+			// RDP_Write(&cmdlist, (0x33<<24));
+			// RDP_Write(&cmdlist, (/*tile*/7<<24) | (/*lower right S*/((32*32-1))<<12) | ((2048+line-1)/line) /*((1<<11) / 32)*/);
 
 			// Load Sync
 			RDP_Write(&cmdlist, 0x26000000);
 			RDP_Write(&cmdlist, 0);
 
-			// Set Combine Mode
-			// RDP_Write(&cmdlist, (0x3C<<24) | (RDP_COMB_PRIMITIVE<<20) | (RDP_COMB_SHADE<<15) | (RDP_COMB_PRIMITIVE<<12) | (RDP_COMB_SHADE<<9));
-			// RDP_Write(&cmdlist, 0);
+			// // Set Tile
+			// line = 32*2 / 8;
+			RDP_Write(&cmdlist, (0x35<<24) | (/*format*/0<<21) | (/*size*/2<<19) | (line<<9) | (/*tmem addr*/0));
+			RDP_Write(&cmdlist, (/*tile*/0<<24));
 
-			// RDP_Write(&cmdlist, (0x3C<<24) | (RDP_COMB_PRIMITIVE<<20) | (RDP_COMB_SHADE<<15) | (RDP_COMB_PRIMITIVE<<5) | (RDP_COMB_SHADE<<0));
-			// RDP_Write(&cmdlist, (8<<24) | (7<<6));//(RDP_COMB_PRIMITIVE<<12) | (RDP_COMB_SHADE<<9)
-			// uint64_t combine = RDP_CombinerRGB(RDP_COMB_PRIMITIVE, 0, RDP_COMB_SHADE, 0);
-			// RDP_Write(&cmdlist, (0x3C<<24) | (combine >> 32));
-			// RDP_Write(&cmdlist, (combine & 0xFFFFFFFF));
+			// Set Tile Size
+			RDP_Write(&cmdlist, (0x32<<24));
+			RDP_Write(&cmdlist, (/*tile*/0<<24) | (((tileWidth-1)<<2)<<12) | (((tileHeight-1)<<2)<<0));
+
+			// Set Combine Mode
 			RDP_SetCombineMode(&cmdlist, RDP_CombinerRGB(RDP_COMB_TEX0, 0, RDP_COMB_PRIMITIVE, 0));
 
 			// Pipe Sync
 			RDP_Write(&cmdlist, 0x27000000);
 			RDP_Write(&cmdlist, 0);
-
+			
+			// Texture Rectangle
+			{
+				uint32_t w = 100;
+				uint32_t h = 100;
+				// u10.2 format
+				uint32_t x0 = (150) << 2;
+				uint32_t y0 = (150) << 2;
+				uint32_t x1 = (150+w) << 2;
+				uint32_t y1 = (150+h) << 2;
+				RDP_Write(&cmdlist, (0x24<<24) | (x1<<12) | (y1<<0));
+				RDP_Write(&cmdlist, (0<<24) | (x0<<12) | (y0<<0));
+				
+				int32_t u = ((-4)<<5) & 0xFFFF;
+				int32_t v = ((-4)<<5) & 0xFFFF;
+				int32_t du = ((tileWidth+8)<<10) / 100;
+				int32_t dv = ((tileHeight+8)<<10) / 100;
+				RDP_Write(&cmdlist, (u<<16) | (v<<0));
+				RDP_Write(&cmdlist, (du<<16) | (dv<<0));
+			}
+			
 			// Shaded triangle
 			// rdp_vertex_t verts[] = {
-			// 	{{200, 50}, {255, 255, 255, 255}},
-			// 	{{260, 100}, {30, 120, 120, 255}},
-			// 	{{230, 150}, {30, 10, 200, 255}},
+			// 	{{200, 50}, {0, 0, 255, 255}, {0.0f, 0.0f}},
+			// 	{{260, 100}, {255, 0, 0, 255}, {1.0f, 0.0f}},
+			// 	{{230, 150}, {0, 255, 0, 255}, {1.0f, 1.0f}},
 			// };
-			rdp_vertex_t verts[] = {
-				{{200, 50}, {0, 0, 255, 255}, {0.0f, 0.0f}},
-				{{260, 100}, {255, 0, 0, 255}, {1.0f, 0.0f}},
-				{{230, 150}, {0, 255, 0, 255}, {1.0f, 1.0f}},
-			};
-			RDP_FillTriangleWithShade(&cmdlist, verts);
+			// RDP_FillTriangleWithShade(&cmdlist, verts);
 
 
 			// Full Sync
@@ -1100,7 +1148,7 @@ int main()
 		if (y+50 > 288) speedy = -2;
 		if (y < 0) speedy = 2;
 
-		BlitTexture(__heap_start, 100, 100, 0, 0, 32, 32);
+		BlitTexture(texture_test_start, 100, 100, 0, 0, 32, 32);
 		
 		UpdateLogs();
 
