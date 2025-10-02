@@ -99,7 +99,8 @@ uint64_t RDP_CombinerRGB(uint64_t a, uint64_t b, uint64_t c, uint64_t d)
 	if (!b) b = RDP_COMB_B_ZERO;
 	if (!c) c = RDP_COMB_C_ZERO;
 	if (!d) d = RDP_COMB_D_ZERO;
-	result = (a<<37) | (c<<32) | (b<<24) | (d<<6);
+	result = (a<<37) | (c<<32) | (b<<24) | (d<<6)
+			| (a<<52) | (c<<47) | (b<<28) | (d<<15);
 	return result;
 }
 
@@ -985,7 +986,7 @@ int main()
 			RDP_Write(&cmdlist, 0);
 
 			// Set Other Modes
-			RDP_Write(&cmdlist, (0x2F<<24) | (0x0<<20)); // 1cycle mode
+			RDP_Write(&cmdlist, (0x2F<<24) | (0x0<<20) | (1<<11)); // 1cycle mode
 			RDP_Write(&cmdlist, 0);
 
 			// Set Primitive Color
@@ -996,12 +997,16 @@ int main()
 			RDP_Write(&cmdlist, 0x3B<<24);
 			RDP_Write(&cmdlist, 0xFFFFFFFF);
 
-			uint32_t tileWidth = 8;
-			uint32_t tileHeight = 8;
+			uint32_t tileWidth = 32;
+			uint32_t tileHeight = 32;
 
 			// Set Texture Image
 			RDP_Write(&cmdlist, (0x3D<<24) | (/*format*/0<<21) | (/*size*/2<<19) | (/*width*/32-1));
-			RDP_Write(&cmdlist, (((uintptr_t)__heap_start&0x1FFFFFFF)|0xA0000000) >> 3);
+			RDP_Write(&cmdlist, (((uintptr_t)__heap_start&0x1FFFFFFF)|0xA0000000) /*>> 3*/);
+
+			// Pipe Sync
+			RDP_Write(&cmdlist, 0x27000000);
+			RDP_Write(&cmdlist, 0);
 
 			// Set Tile
 			uint32_t line = 32*2 / 8;
@@ -1056,12 +1061,12 @@ int main()
 			}
 			
 			// Shaded triangle
-			// rdp_vertex_t verts[] = {
-			// 	{{200, 50}, {0, 0, 255, 255}, {0.0f, 0.0f}},
-			// 	{{260, 100}, {255, 0, 0, 255}, {1.0f, 0.0f}},
-			// 	{{230, 150}, {0, 255, 0, 255}, {1.0f, 1.0f}},
-			// };
-			// RDP_FillTriangleWithShade(&cmdlist, verts);
+			rdp_vertex_t verts[] = {
+				{{200, 50}, {0, 0, 255, 255}, {0.0f, 0.0f}},
+				{{260, 100}, {255, 0, 0, 255}, {32.0f, 0.0f}},
+				{{230, 150}, {0, 255, 0, 255}, {32.0f, 32.0f}},
+			};
+			RDP_FillTriangleWithShade(&cmdlist, verts);
 
 
 			// Full Sync
