@@ -10,11 +10,6 @@
 #include <stdarg.h>
 
 
-// UTIL
-#define assert(exp) if (!(exp)) { DrawFontStringWithBG(N64Font, "AssertionFired", 320/2-7, 10); (*(volatile int*)0)=0; }
-// #define swap(a, b) a=b-a; b=b-a; a=b+a;
-#define swap(a, b) { typeof(a) __tmp=a; a=b; b=__tmp; }
-
 // SYSTEM
 void Log(char* str, ...);
 void UpdateLogs();

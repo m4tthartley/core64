@@ -10,7 +10,8 @@
 unsigned long strlen(const char* str)
 {
 	unsigned long result = 0;
-	while (*str++) {
+	char* s = (char*)str;
+	while (*s++) {
 		++result;
 	}
 
@@ -41,15 +42,4 @@ void* CopyMemory(uint8_t* dest, const uint8_t* src, size_t num)
 	}
 
 	return dest;
-}
-
-float* CopyFloats(float* out, float* in, size_t num)
-{
-	for (int i=0; i<num; ++i) {
-		// float a = out[i] * in[i];
-		// out[i] = a;
-		out[i] = in[i];
-	}
-
-	return out;
 }

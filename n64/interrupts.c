@@ -7,33 +7,15 @@
 
 #include "core64.h"
 #include "n64def.h"
+#include "util.h"
 
+#include "interrupts.h"
 
 // extern volatile uint32_t __viInterruptCounter;
 // extern volatile uint32_t __viInterrupt;
 
 
-typedef struct {
-	struct {
-		uint64_t zero;
-		uint64_t at;
-		uint64_t v0, v1;
-		uint64_t a0, a1, a2, a3;
-		uint64_t t0, t1, t2, t3, t4, t5, t6, t7, t8, t9;
-		uint64_t s0, s1, s2, s3, s4, s5, s6, s7, s8;
-		uint64_t k0, k1;
-		uint64_t gp;
-		uint64_t sp;
-		uint64_t ra;
-	};
 
-	uint32_t status;
-	uint32_t cause;
-	uint32_t epc;
-	uint32_t badaddr;
-
-	// uint32_t sp;
-} interruptframe_t;
 
 uint32_t __INTERRUPT_FRAME_SIZE = (sizeof(interruptframe_t) & ~7) + 8;
 // uint32_t __EF_AT = offsetof(exceptionframe_t, at);
@@ -289,3 +271,16 @@ void HandleInterrupt_MI()
 	UnhandledInterrupt(type);
 }
 
+void AssertionScreen(char* function, char* filename, int line, char* expr)
+{
+	char str[256];
+	sprint(str, 256, "Assertion Fired");
+	DrawFontStringWithBG(N64Font, str, 320/2 - (strlen(str)*6/2), 10);
+
+	sprint(str, 256, "in %s(), at %s:%i", function, filename, line);
+	DrawFontStringWithBG(N64Font, str, 320/2 - (strlen(str)*6/2), 20);
+
+	DrawFontStringWithBG(N64Font, expr, 320/2 - (strlen(expr)*6/2), 30);
+
+	for (;;);
+}
