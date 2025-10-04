@@ -56,10 +56,15 @@ void RDP_Write(rdpcmdlist_t* cmdlist, uint32_t word)
 	RDP_WriteWord(word);
 }
 
+#define RDPCMD_FILL_TRIANGLE (0b001<<27)
+#define RDPCMD_TEXTURE_RECTANGLE 0x24000000
+#define RDPCMD_TEXTURE_RECTANGLE_FLIPPED 0x25000000
+
 #define RDPCMD_LOAD_SYNC 0x26000000
 #define RDPCMD_PIPE_SYNC 0x27000000
 #define RDPCMD_FULL_SYNC 0x29000000
 
+#define RDPCMD_SET_SCISSOR 0x2D000000
 #define RDPCMD_SET_OTHER_MODES 0x2F000000
 
 #define RDPCMD_SET_TILE_SIZE 0x32000000
@@ -67,6 +72,7 @@ void RDP_Write(rdpcmdlist_t* cmdlist, uint32_t word)
 #define RDPCMD_LOAD_TILE 0x34000000
 #define RDPCMD_SET_TILE 0x35000000
 
+#define RDPCMD_SET_FILL_COLOR 0x37000000
 #define RDPCMD_SET_FOG_COLOR 0x38000000
 #define RDPCMD_SET_BLEND_COLOR 0x39000000
 #define RDPCMD_SET_PRIMITIVE_COLOR 0x3A000000
@@ -140,6 +146,21 @@ void RDP_FullSync()
 	RDP_WriteWord(0);
 }
 
+void RDP_SetScissor(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
+{	
+	// uint32_t sx0 = 1<<2;
+	// uint32_t sy0 = 1<<2;
+	// uint32_t sx1 = (320-2)<<2;
+	// uint32_t sy1 = (288-2)<<2;
+	// cmd.word0 = (0x2D<<24) | (sx0<<12) | (sy0);
+	// cmd.word1 = (sx1<<12) | (sy1);
+	// RDP_Write(&cmdlist, cmd.word0);
+	// RDP_Write(&cmdlist, cmd.word1);
+
+	RDP_WriteWord(RDPCMD_SET_SCISSOR | ((x0<<2)<<12) | ((y0<<2)));
+	RDP_WriteWord(((x1<<2)<<12) | ((y1<<2)));
+}
+
 void RDP_SetOtherModes(uint64_t mask)
 {
 	// RDP_Write(cmdlist, (0x2F<<24) | (0x0<<20) | (1<<11)); // 1cycle mode
@@ -193,6 +214,23 @@ void RDP_SetTile(uint32_t tileIndex, uint32_t textureFormatMask, uint32_t width,
 	uint32_t line = width*pixelSize / 8;
 	RDP_WriteWord(RDPCMD_SET_TILE | textureFormatMask | (line<<9) | tmemOffset);
 	RDP_WriteWord((tileIndex<<24));
+}
+
+void RDP_SetFillColor32(color32_t color)
+{
+	// cmd.word0 = 0x37 << 24;
+	// uint16_t color = (8<<1) | 1;
+	// cmd.word1 = (color << 16) | color;
+	// RDP_Write(&cmdlist, cmd.word0);
+	// RDP_Write(&cmdlist, cmd.word1);
+
+	RDP_WriteWord(RDPCMD_SET_FILL_COLOR);
+	RDP_WriteWord(color);
+}
+void RDP_SetFillColor16(color16_t color)
+{
+	RDP_WriteWord(RDPCMD_SET_FILL_COLOR);
+	RDP_WriteWord((color << 16) | color);
 }
 
 void RDP_SetFogColor(color32_t color)
@@ -561,6 +599,40 @@ void RDP_FillTriangleWithShade(rdp_vertex_t* verts)
 	// frac part change each scanline
 	RDP_WriteWord((yTexCoefFixed.u<<16) | (yTexCoefFixed.v&0xFFFF));
 	RDP_WriteWord((yTexCoefFixed.w<<16));
+}
+
+void RDP_TextureRectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t s0, uint16_t t0, uint16_t s1, uint16_t t1)
+{
+	// uint32_t w = 100;
+	// uint32_t h = 100;
+	// // u10.2 format
+	// uint32_t x0 = (75) << 2;
+	// uint32_t y0 = (150) << 2;
+	// uint32_t x1 = (75+w) << 2;
+	// uint32_t y1 = (150+h) << 2;
+	// RDP_Write(&cmdlist, (0x24<<24) | (x1<<12) | (y1<<0));
+	// RDP_Write(&cmdlist, (0<<24) | (x0<<12) | (y0<<0));
+	
+	// int32_t u = ((0)<<5) & 0xFFFF;
+	// int32_t v = ((0)<<5) & 0xFFFF;
+	// int32_t du = ((tileWidth)<<10) / 100;
+	// int32_t dv = ((tileHeight)<<10) / 100;
+	// RDP_Write(&cmdlist, (u<<16) | (v<<0));
+	// RDP_Write(&cmdlist, (du<<16) | (dv<<0));
+
+	uint32_t x0 = (x) << 2;
+	uint32_t y0 = (y) << 2;
+	uint32_t x1 = (x + width) << 2;
+	uint32_t y1 = (y + height) << 2;
+	RDP_WriteWord(RDPCMD_TEXTURE_RECTANGLE | (x1<<12) | (y1<<0));
+	RDP_WriteWord((0<<24) | (x0<<12) | (y0<<0));
+	
+	int32_t u = (s0<<5) & 0xFFFF;
+	int32_t v = (t0<<5) & 0xFFFF;
+	int32_t du = (s1<<10) / width;
+	int32_t dv = (t1<<10) / height;
+	RDP_WriteWord((u<<16) | (v<<0));
+	RDP_WriteWord((du<<16) | (dv<<0));
 }
 
 void RDP_FillRect(int32_t x, int32_t y, int32_t width, int32_t height)

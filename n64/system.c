@@ -9,39 +9,15 @@
 #include "core64.h"
 
 
-typedef struct {
-	char str[64];
-	int32_t timer;
-} log_t;
-
-log_t logs[64];
-uint32_t logIndex = 0;
-
-void Log(char* str, ...)
-{
-	va_list args;
-	va_start(args, str);
+volatile uint32_t __memorySize;
+volatile uint32_t __tvType;
+volatile uint32_t __resetType;
+volatile uint32_t __consoleType;
 
 
-	vsprint(logs[logIndex].str, 64, str, args);
-	logs[logIndex].timer = 10000;
-	++logIndex;
-	logIndex &= 63;
-
-	va_end(args);
-}
-
-void UpdateLogs()
-{
-	int y = 0;
-	for (int idx=0; idx<64; ++idx) {
-		if (logs[idx].timer > 0) {
-			logs[idx].timer -= GetDeltaTime();
-			DrawFontStringWithBG(N64Font, logs[idx].str, 8, 8 + y);
-			y += 8;
-		}
-	}
-}
+// MEMORY
+extern uint8_t __heap_start[];
+extern uint8_t __heap_end[];
 
 // TODO: Should this be volatile or not?
 void DataCacheWritebackInvalidate(void* addr, uint32_t size)
@@ -63,3 +39,28 @@ void MemoryBarrier()
 // {
 // 	return addr & 0x1FFFFFFF;
 // }
+
+
+// TIME
+uint32_t __lastFrameTime = 0;
+uint32_t __deltaTime = 0;
+
+void PollTime()
+{
+	if (!__lastFrameTime) {
+		__lastFrameTime = _GetClock();
+	}
+
+	uint32_t clockHz = 46875000;
+	uint32_t clocksPerMs = clockHz / 1000;
+	uint32_t time = _GetClock();
+	uint32_t deltaClocks = time - __lastFrameTime;
+	__lastFrameTime = time;
+
+	__deltaTime = deltaClocks / clocksPerMs;
+}
+
+uint32_t GetDeltaTime()
+{
+	return __deltaTime;
+}

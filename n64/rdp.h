@@ -82,6 +82,7 @@ typedef struct {
 // 	};
 // } color32_t;
 typedef uint32_t color32_t;
+typedef uint16_t color16_t;
 
 // #define Color32(red, green, blue, alpha) ((color32_t){ .r=red, .g=green, .b=blue, .a=alpha })
 #define Color32(r, g, b, a) ((r&0xFF)<<24 | (g&0xFF)<<16 | (b&0xFF)<<8 | (a&0xFF)<<0)
