@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #include "core64.h"
-#include "n64def.h"
+#include "registers.h"
 #include "util.h"
 
 #include "interrupts.h"

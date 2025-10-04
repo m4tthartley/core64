@@ -5,8 +5,9 @@
 
 #include <stdint.h>
 
-#include "n64def.h"
+#include "registers.h"
 #include "core64.h"
+#include "video.h"
 
 
 void BlitFontTexture()

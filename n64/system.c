@@ -42,3 +42,24 @@ void UpdateLogs()
 		}
 	}
 }
+
+// TODO: Should this be volatile or not?
+void DataCacheWritebackInvalidate(void* addr, uint32_t size)
+{
+	int linesize = 16;
+	void* line = (void*)((unsigned long)addr & ~(linesize-1));
+	uint32_t len = size + (addr-line);
+	for (int l=0; l<len; l+=linesize) {
+		asm ("\tcache %0, (%1)\n" :: "i" (0x15), "r" (line + l));
+	}
+}
+
+void MemoryBarrier()
+{
+	asm volatile ("" : : : "memory");
+}
+
+// uintptr_t PhysicalAddress(uintptr_t addr)
+// {
+// 	return addr & 0x1FFFFFFF;
+// }

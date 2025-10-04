@@ -3,7 +3,7 @@
 ##  Copyright 2025 GiantJelly. All rights reserved.
 ##
 
-#include "n64def.h"
+#include "registers.h"
 
 #include "exception.s"
 

@@ -6,9 +6,15 @@
 #include <stdbool.h>
 #include "rdp.h"
 #include "util.h"
+#include "system.h"
+#include "registers.h"
 
 
-uint64_t __attribute__((aligned(8))) commandList[64];
+uint8_t __attribute__((aligned(8))) _commandList[1024];
+uintptr_t _commandListBuffer;
+uint32_t  _commandListSize; // in bytes
+uint32_t  _commandListCursor; // in bytes
+
 
 rdpcmdlist_t RDP_CmdList(void* buffer, uint32_t size)
 {
@@ -18,49 +24,199 @@ rdpcmdlist_t RDP_CmdList(void* buffer, uint32_t size)
 	return result;
 }
 
+void RDP_StartCmdList(void* buffer, uint32_t size)
+{
+	if (!buffer) {
+		buffer = _commandList;
+		size = 1024;
+	}
+
+	_commandListBuffer = (uintptr_t)buffer;
+	_commandListSize = size;
+	_commandListCursor = 0;
+}
+
+void RDP_WriteWord(uint32_t word)
+{
+	assert(_commandListBuffer);
+	assert(_commandListCursor + 4 < _commandListSize);
+	uint32_t* buffer = (uint32_t*)((uint8_t*)_commandListBuffer + _commandListCursor);
+	*buffer = word;
+	_commandListCursor += 4;
+}
+
 void RDP_Write(rdpcmdlist_t* cmdlist, uint32_t word)
 {
+#if 0
 	assert(cmdlist->cursor + 4 < cmdlist->bufferSize);
 	uint32_t* buffer = (uint32_t*)((uint8_t*)cmdlist->buffer + cmdlist->cursor);
 	*buffer = word;
 	cmdlist->cursor += 4;
+#endif
+	RDP_WriteWord(word);
 }
 
 #define RDPCMD_LOAD_SYNC 0x26000000
 #define RDPCMD_PIPE_SYNC 0x27000000
 #define RDPCMD_FULL_SYNC 0x29000000
 
+#define RDPCMD_SET_OTHER_MODES 0x2F000000
+
+#define RDPCMD_SET_TILE_SIZE 0x32000000
+#define RDPCMD_LOAD_BLOCK 0x33000000
+#define RDPCMD_LOAD_TILE 0x34000000
+#define RDPCMD_SET_TILE 0x35000000
+
+#define RDPCMD_SET_FOG_COLOR 0x38000000
+#define RDPCMD_SET_BLEND_COLOR 0x39000000
 #define RDPCMD_SET_PRIMITIVE_COLOR 0x3A000000
 #define RDPCMD_SET_ENVIRONMENT_COLOR 0x3B000000
 
-void RDP_LoadSync(rdpcmdlist_t* cmdlist)
+#define RDPCMD_SET_TEXTURE_IMAGE 0x3D000000
+#define RDPCMD_SET_COLOR_IMAGE 0x3F000000
+
+#define RDP_MODE_1CYCLE ((uint64_t)0<<52)
+#define RDP_MODE_2CYCLE ((uint64_t)1<<52)
+#define RDP_MODE_COPY ((uint64_t)2<<52)
+#define RDP_MODE_FILL ((uint64_t)3<<52)
+#define RDP_MODE_BI_LERP ((uint64_t)1<<43)
+#define RDP_MODE_TEX_RGB ((uint64_t)1<<43)
+#define RDP_MODE_BI_LERP_CYCLE2 ((uint64_t)1<<42)
+#define RDP_MODE_TEX_RGB_CYCLE2 ((uint64_t)1<<42)
+
+#define RDP_TEXTURE_IMAGE_FORMAT_RGBA ((uint32_t)0<<21)
+#define RDP_TEXTURE_IMAGE_FORMAT_YUV ((uint32_t)1<<21)
+#define RDP_TEXTURE_IMAGE_FORMAT_COLOR_INDEXED ((uint32_t)2<<21)
+#define RDP_TEXTURE_IMAGE_FORMAT_INTENSITY_ALPHA ((uint32_t)3<<21)
+#define RDP_TEXTURE_IMAGE_FORMAT_INTENSITY ((uint32_t)4<<21)
+#define RDP_TEXTURE_IMAGE_PIXEL_SIZE_4 ((uint32_t)0<<19)
+#define RDP_TEXTURE_IMAGE_PIXEL_SIZE_8 ((uint32_t)1<<19)
+#define RDP_TEXTURE_IMAGE_PIXEL_SIZE_16 ((uint32_t)2<<19)
+#define RDP_TEXTURE_IMAGE_PIXEL_SIZE_32 ((uint32_t)3<<19)
+#define RDP_TEXTURE_IMAGE_FORMAT_RGBA16 (RDP_TEXTURE_IMAGE_FORMAT_RGBA | RDP_TEXTURE_IMAGE_PIXEL_SIZE_16)
+#define RDP_TEXTURE_IMAGE_FORMAT_RGBA32 (RDP_TEXTURE_IMAGE_FORMAT_RGBA | RDP_TEXTURE_IMAGE_PIXEL_SIZE_32)
+#define RDP_TEXTURE_IMAGE_FORMAT_YUV16 (RDP_TEXTURE_IMAGE_FORMAT_YUV | RDP_TEXTURE_IMAGE_PIXEL_SIZE_16)
+#define RDP_TEXTURE_IMAGE_FORMAT_COLOR_INDEXED4 (RDP_TEXTURE_IMAGE_FORMAT_COLOR_INDEXED | RDP_TEXTURE_IMAGE_PIXEL_SIZE_4)
+#define RDP_TEXTURE_IMAGE_FORMAT_COLOR_INDEXED8 (RDP_TEXTURE_IMAGE_FORMAT_COLOR_INDEXED | RDP_TEXTURE_IMAGE_PIXEL_SIZE_8)
+#define RDP_TEXTURE_IMAGE_FORMAT_INTENSITY_ALPHA4 (RDP_TEXTURE_IMAGE_FORMAT_INTENSITY_ALPHA | RDP_TEXTURE_IMAGE_PIXEL_SIZE_4)
+#define RDP_TEXTURE_IMAGE_FORMAT_INTENSITY_ALPHA8 (RDP_TEXTURE_IMAGE_FORMAT_INTENSITY_ALPHA | RDP_TEXTURE_IMAGE_PIXEL_SIZE_8)
+#define RDP_TEXTURE_IMAGE_FORMAT_INTENSITY_ALPHA16 (RDP_TEXTURE_IMAGE_FORMAT_INTENSITY_ALPHA | RDP_TEXTURE_IMAGE_PIXEL_SIZE_16)
+#define RDP_TEXTURE_IMAGE_FORMAT_INTENSITY4 (RDP_TEXTURE_IMAGE_FORMAT_INTENSITY | RDP_TEXTURE_IMAGE_PIXEL_SIZE_4)
+#define RDP_TEXTURE_IMAGE_FORMAT_INTENSITY8 (RDP_TEXTURE_IMAGE_FORMAT_INTENSITY | RDP_TEXTURE_IMAGE_PIXEL_SIZE_8)
+
+enum {
+	TEXTURE_FORMAT_RGBA32 = 0,
+	TEXTURE_FORMAT_RGBA16,
+	TEXTURE_FORMAT_PALETTED8,
+	TEXTURE_FORMAT_PALETTED4,
+	TEXTURE_FORMAT_INTENSITY8,
+	TEXTURE_FORMAT_INTENSITY4,
+} textureformat_t;
+
+uint64_t _textureImageFormatTable[] = {
+	/* TEXTURE_FORMAT_RGBA32 */ RDP_TEXTURE_IMAGE_FORMAT_RGBA32,
+	/* TEXTURE_FORMAT_RGBA16 */ RDP_TEXTURE_IMAGE_FORMAT_RGBA16,
+	/* TEXTURE_FORMAT_PALETTED8 */ RDP_TEXTURE_IMAGE_FORMAT_COLOR_INDEXED8,
+	/* TEXTURE_FORMAT_PALETTED4 */ RDP_TEXTURE_IMAGE_FORMAT_COLOR_INDEXED4,
+	/* TEXTURE_FORMAT_INTENSITY8 */ RDP_TEXTURE_IMAGE_FORMAT_INTENSITY8,
+	/* TEXTURE_FORMAT_INTENSITY4 */ RDP_TEXTURE_IMAGE_FORMAT_INTENSITY4,
+};
+
+void RDP_LoadSync()
 {
-	RDP_Write(cmdlist, RDPCMD_LOAD_SYNC);
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord(RDPCMD_LOAD_SYNC);
+	RDP_WriteWord(0);
 }
 
-void RDP_PipeSync(rdpcmdlist_t* cmdlist)
+void RDP_PipeSync()
 {
-	RDP_Write(cmdlist, RDPCMD_PIPE_SYNC);
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord(RDPCMD_PIPE_SYNC);
+	RDP_WriteWord(0);
 }
 
-void RDP_FullSync(rdpcmdlist_t* cmdlist)
+void RDP_FullSync()
 {
-	RDP_Write(cmdlist, RDPCMD_FULL_SYNC);
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord(RDPCMD_FULL_SYNC);
+	RDP_WriteWord(0);
 }
 
-void RDP_SetPrimitiveColor(rdpcmdlist_t* cmdlist, color32_t color)
+void RDP_SetOtherModes(uint64_t mask)
 {
-	RDP_Write(cmdlist, RDPCMD_SET_PRIMITIVE_COLOR);
-	RDP_Write(cmdlist, color);
+	// RDP_Write(cmdlist, (0x2F<<24) | (0x0<<20) | (1<<11)); // 1cycle mode
+	// RDP_Write(cmdlist, 0);
+
+	RDP_WriteWord(RDPCMD_SET_OTHER_MODES | (mask>>32));
+	RDP_WriteWord((mask&0xFFFFFFFF));
 }
 
-void RDP_SetEnvironmentColor(rdpcmdlist_t* cmdlist, color32_t color)
+void RDP_SetTileSize(uint32_t tileIndex, uint32_t width, uint32_t height)
 {
-	RDP_Write(cmdlist, RDPCMD_SET_ENVIRONMENT_COLOR);
-	RDP_Write(cmdlist, color);
+	// RDP_Write(cmdlist, RDPCMD_SET_TILE_SIZE);
+	// RDP_Write(cmdlist, (/*tile*/0<<24) | (((tileWidth-1)<<2)<<12) | (((tileHeight-1)<<2)<<0));
+
+	RDP_WriteWord(RDPCMD_SET_TILE_SIZE);
+	RDP_WriteWord((tileIndex<<24) | (((width-1)<<2)<<12) | (((height-1)<<2)<<0));
+}
+
+void RDP_LoadBlock(uint32_t tileIndex, uint32_t s0, uint32_t t0, uint32_t length)
+{
+	// TODO: This does not work properly yet!
+
+	// RDP_Write(&cmdlist, (0x33<<24));
+	// RDP_Write(&cmdlist, (/*tile*/7<<24) | (/*lower right S*/((32*32-1))<<12) | ((2048+line-1)/line) /*((1<<11) / 32)*/);
+	// (1<<11) / 8
+
+	RDP_WriteWord(RDPCMD_LOAD_BLOCK | (s0<<12) | (t0<<0));
+	uint32_t line = 32*2 / 8;
+	// uint32_t dxt = (2048 + line - 1) / line;
+	// uint32_t dxt = (1<<11) / 32;
+	uint32_t dxt = 0;
+	RDP_WriteWord((tileIndex<<24) | ((length-1)<<12) | (dxt&0xFFF));
+}
+
+void RDP_LoadTile(uint32_t tileIndex, uint32_t s0, uint32_t t0, uint32_t s1, uint32_t t1)
+{
+	// RDP_Write(&cmdlist, (0x34<<24) | (/*upper left S*/0<<12) | (/*upper left T*/0<<0));
+	// RDP_Write(&cmdlist, (/*tile*/7<<24) | (/*lower right S*/((tileWidth-1)<<2)<<12) | (/*lower right T*/((tileHeight-1)<<2)<<0));
+
+	RDP_WriteWord(RDPCMD_LOAD_TILE | ((s0<<2)<<12) | ((t0<<2)<<0));
+	RDP_WriteWord((tileIndex<<24) | (((s1-1)<<2)<<12) | (((t1-1)<<2)<<0));
+}
+
+void RDP_SetTile(uint32_t tileIndex, uint32_t textureFormatMask, uint32_t width, uint32_t tmemOffset)
+{
+	// uint32_t line = 32*2 / 8;
+	// RDP_Write(&cmdlist, (0x35<<24) | (/*format*/0<<21) | (/*size*/2<<19) | (line<<9) | (/*tmem addr*/0));
+	// RDP_Write(&cmdlist, (/*tile*/7<<24));
+
+	uint32_t pixelSize = (textureFormatMask>>19) & 3;
+	uint32_t line = width*pixelSize / 8;
+	RDP_WriteWord(RDPCMD_SET_TILE | textureFormatMask | (line<<9) | tmemOffset);
+	RDP_WriteWord((tileIndex<<24));
+}
+
+void RDP_SetFogColor(color32_t color)
+{
+	RDP_WriteWord(RDPCMD_SET_FOG_COLOR);
+	RDP_WriteWord(color);
+}
+
+void RDP_SetBlendColor(color32_t color)
+{
+	RDP_WriteWord(RDPCMD_SET_BLEND_COLOR);
+	RDP_WriteWord(color);
+}
+
+void RDP_SetPrimitiveColor(color32_t color)
+{
+	RDP_WriteWord(RDPCMD_SET_PRIMITIVE_COLOR);
+	RDP_WriteWord(color);
+}
+
+void RDP_SetEnvironmentColor(color32_t color)
+{
+	RDP_WriteWord(RDPCMD_SET_ENVIRONMENT_COLOR);
+	RDP_WriteWord(color);
 }
 
 uint64_t RDP_CombinerRGB(uint64_t a, uint64_t b, uint64_t c, uint64_t d)
@@ -75,7 +231,7 @@ uint64_t RDP_CombinerRGB(uint64_t a, uint64_t b, uint64_t c, uint64_t d)
 	return result;
 }
 
-void RDP_SetCombineMode(rdpcmdlist_t* cmdlist, uint64_t combinerMask)
+void RDP_SetCombineMode(uint64_t combinerMask)
 {
 	// RDP_Write(&cmdlist, (0x3C<<24) | (RDP_COMB_PRIMITIVE<<20) | (RDP_COMB_SHADE<<15) | (RDP_COMB_PRIMITIVE<<12) | (RDP_COMB_SHADE<<9));
 	// RDP_Write(&cmdlist, 0);
@@ -86,11 +242,28 @@ void RDP_SetCombineMode(rdpcmdlist_t* cmdlist, uint64_t combinerMask)
 	// RDP_Write(&cmdlist, (0x3C<<24) | (combine >> 32));
 	// RDP_Write(&cmdlist, (combine & 0xFFFFFFFF));
 
-	RDP_Write(cmdlist, (0x3C<<24) | (combinerMask >> 32));
-	RDP_Write(cmdlist, (combinerMask & 0xFFFFFFFF));
+	RDP_WriteWord((0x3C<<24) | (combinerMask >> 32));
+	RDP_WriteWord((combinerMask & 0xFFFFFFFF));
 }
 
-void RDP_FillTriangle(rdpcmdlist_t* cmdlist, vecscreen_t* verts)
+void RDP_SetTextureImage(uint32_t textureFormatMask, uint32_t width, void* address)
+{
+	// RDP_Write(cmdlist, RDPCMD_SET_TEXTURE_IMAGE | (/*format*/0<<21) | (/*size*/2<<19) | (/*width*/32-1));
+	// RDP_Write(cmdlist, ((address&0x1FFFFFFF)|0xA0000000));
+	/*>> 3*/
+	RDP_WriteWord(RDPCMD_SET_TEXTURE_IMAGE | textureFormatMask | (width-1));
+	RDP_WriteWord((((uintptr_t)address&0x1FFFFFFF)|0xA0000000));
+}
+
+void RDP_SetColorImage(uint32_t textureFormatMask, uint16_t width)
+{
+	// cmd.word0 = RDPCMD_SET_COLOR_IMAGE | textureFormatMask | (width-1);
+	// cmd.word1 = VI_FRAMEBUFFERBASE & 0xFFFFFF;
+	RDP_WriteWord(RDPCMD_SET_COLOR_IMAGE | textureFormatMask | (width-1));
+	RDP_WriteWord(UncachedAddress(VI_FRAMEBUFFERBASE));
+}
+
+void RDP_FillTriangle(vecscreen_t* verts)
 {
 	if (verts[0].y > verts[1].y) swap(verts[0], verts[1]);
 	if (verts[1].y > verts[2].y) swap(verts[1], verts[2]);
@@ -112,24 +285,24 @@ void RDP_FillTriangle(rdpcmdlist_t* cmdlist, vecscreen_t* verts)
 
 	bool leftMajor = (hxdiff * mydiff - mxdiff * hydiff) <= 0;
 
-	RDP_Write(cmdlist, (0b001<<27) | (leftMajor<<23/*lmajor*/) | ((v2y<<2)&0x3FFF));
-	RDP_Write(cmdlist, (((v1y<<2)&0x3FFF)<<16) | ((v0y<<2)&0x3FFF));
+	RDP_WriteWord((0b001<<27) | (leftMajor<<23/*lmajor*/) | ((v2y<<2)&0x3FFF));
+	RDP_WriteWord((((v1y<<2)&0x3FFF)<<16) | ((v0y<<2)&0x3FFF));
 
 	// low=high on the screen, high=low on the screen
 	// line from middle y to highest y
-	RDP_Write(cmdlist, (v1x<<16));
-	RDP_Write(cmdlist, dxldy);
+	RDP_WriteWord((v1x<<16));
+	RDP_WriteWord(dxldy);
 
 	// line from lowest y to highest y
-	RDP_Write(cmdlist, (v0x<<16));
-	RDP_Write(cmdlist, dxhdy);
+	RDP_WriteWord((v0x<<16));
+	RDP_WriteWord(dxhdy);
 
 	// line from lowest y to middle y
-	RDP_Write(cmdlist, (v0x<<16));
-	RDP_Write(cmdlist, dxmdy);
+	RDP_WriteWord((v0x<<16));
+	RDP_WriteWord(dxmdy);
 }
 
-void RDP_FillTriangleWithShade(rdpcmdlist_t* cmdlist, rdp_vertex_t* verts)
+void RDP_FillTriangleWithShade(rdp_vertex_t* verts)
 {
 	rdp_vertex_t v0 = verts[0];
 	rdp_vertex_t v1 = verts[1];
@@ -155,49 +328,49 @@ void RDP_FillTriangleWithShade(rdpcmdlist_t* cmdlist, rdp_vertex_t* verts)
 
 	bool leftMajor = (hxdiff * mydiff - mxdiff * hydiff) <= 0;
 
-	RDP_Write(cmdlist, (0b001<<27) | (1<<26/*shade*/) | (1<<25/*texture*/) | (leftMajor<<23/*lmajor*/) | ((v2y<<2)&0x3FFF));
-	RDP_Write(cmdlist, (((v1y<<2)&0x3FFF)<<16) | ((v0y<<2)&0x3FFF));
+	RDP_WriteWord((0b001<<27) | (1<<26/*shade*/) | (1<<25/*texture*/) | (leftMajor<<23/*lmajor*/) | ((v2y<<2)&0x3FFF));
+	RDP_WriteWord((((v1y<<2)&0x3FFF)<<16) | ((v0y<<2)&0x3FFF));
 
 	// low=high on the screen, high=low on the screen
 	// line from middle y to highest y
-	RDP_Write(cmdlist, (v1x<<16));
-	RDP_Write(cmdlist, dxldy);
+	RDP_WriteWord((v1x<<16));
+	RDP_WriteWord(dxldy);
 
 	// line from lowest y to highest y
-	RDP_Write(cmdlist, (v0x<<16));
-	RDP_Write(cmdlist, dxhdy);
+	RDP_WriteWord((v0x<<16));
+	RDP_WriteWord(dxhdy);
 
 	// line from lowest y to middle y
-	RDP_Write(cmdlist, (v0x<<16));
-	RDP_Write(cmdlist, dxmdy);
+	RDP_WriteWord((v0x<<16));
+	RDP_WriteWord(dxmdy);
 
 	// SHADE
 
 #if 0
 	// int part of shade color at xh, floor(yh)
-	RDP_Write(cmdlist, (64<<16) | 64);
-	RDP_Write(cmdlist, (64<<16) | 64);
+	RDP_WriteWord((64<<16) | 64);
+	RDP_WriteWord((64<<16) | 64);
 	// int part change in shade along scanline
-	RDP_Write(cmdlist, (4<<16));
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord((4<<16));
+	RDP_WriteWord(0);
 	// fractional part of shade color at xh, floor(yh)
-	RDP_Write(cmdlist, 0);
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord(0);
+	RDP_WriteWord(0);
 	// fractional part change in shade along scanline
-	RDP_Write(cmdlist, 0);
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord(0);
+	RDP_WriteWord(0);
 	// int part change along major edge
-	RDP_Write(cmdlist, (((uint32_t)-1)<<16));
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord((((uint32_t)-1)<<16));
+	RDP_WriteWord(0);
 	// int part change each scanline
-	RDP_Write(cmdlist, 0);
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord(0);
+	RDP_WriteWord(0);
 	// frac part change along major edge
-	RDP_Write(cmdlist, 0);
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord(0);
+	RDP_WriteWord(0);
 	// frac part change each scanline
-	RDP_Write(cmdlist, 0);
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord(0);
+	RDP_WriteWord(0);
 #endif
 
 	/*
@@ -292,42 +465,42 @@ void RDP_FillTriangleWithShade(rdpcmdlist_t* cmdlist, rdp_vertex_t* verts)
 	uint32_t a = ((uint32_t)v0.color.a) & 0xFF;
 
 	// int part of shade color at xh, floor(yh)
-	RDP_Write(cmdlist, (r<<16) | g);
-	RDP_Write(cmdlist, (b<<16) | a);
+	RDP_WriteWord((r<<16) | g);
+	RDP_WriteWord((b<<16) | a);
 	// int part change in shade along scanline
-	RDP_Write(cmdlist, (xCoefFixed.r&0xFFFF0000) | ((xCoefFixed.g>>16)&0xFFFF));
-	RDP_Write(cmdlist, (xCoefFixed.b&0xFFFF0000) | ((xCoefFixed.a>>16)&0xFFFF));
+	RDP_WriteWord((xCoefFixed.r&0xFFFF0000) | ((xCoefFixed.g>>16)&0xFFFF));
+	RDP_WriteWord((xCoefFixed.b&0xFFFF0000) | ((xCoefFixed.a>>16)&0xFFFF));
 	// fractional part of shade color at xh, floor(yh)
-	RDP_Write(cmdlist, 0);
-	RDP_Write(cmdlist, 0);
+	RDP_WriteWord(0);
+	RDP_WriteWord(0);
 	// fractional part change in shade along scanline
-	RDP_Write(cmdlist, (xCoefFixed.r<<16) | (xCoefFixed.g&0xFFFF));
-	RDP_Write(cmdlist, (xCoefFixed.b<<16) | (xCoefFixed.a&0xFFFF));
+	RDP_WriteWord((xCoefFixed.r<<16) | (xCoefFixed.g&0xFFFF));
+	RDP_WriteWord((xCoefFixed.b<<16) | (xCoefFixed.a&0xFFFF));
 	// int part change along major edge
-	RDP_Write(cmdlist, (edgeCoefFixed.r&0xFFFF0000) | ((edgeCoefFixed.g>>16)&0xFFFF));
-	RDP_Write(cmdlist, (edgeCoefFixed.b&0xFFFF0000) | ((edgeCoefFixed.a>>16)&0xFFFF));
+	RDP_WriteWord((edgeCoefFixed.r&0xFFFF0000) | ((edgeCoefFixed.g>>16)&0xFFFF));
+	RDP_WriteWord((edgeCoefFixed.b&0xFFFF0000) | ((edgeCoefFixed.a>>16)&0xFFFF));
 	// int part change each scanline
-	RDP_Write(cmdlist, (yCoefFixed.r&0xFFFF0000) | ((yCoefFixed.g>>16)&0xFFFF));
-	RDP_Write(cmdlist, (yCoefFixed.b&0xFFFF0000) | ((yCoefFixed.a>>16)&0xFFFF));
+	RDP_WriteWord((yCoefFixed.r&0xFFFF0000) | ((yCoefFixed.g>>16)&0xFFFF));
+	RDP_WriteWord((yCoefFixed.b&0xFFFF0000) | ((yCoefFixed.a>>16)&0xFFFF));
 	// frac part change along major edge
-	RDP_Write(cmdlist, (edgeCoefFixed.r<<16) | (edgeCoefFixed.g&0xFFFF));
-	RDP_Write(cmdlist, (edgeCoefFixed.b<<16) | (edgeCoefFixed.a&0xFFFF));
+	RDP_WriteWord((edgeCoefFixed.r<<16) | (edgeCoefFixed.g&0xFFFF));
+	RDP_WriteWord((edgeCoefFixed.b<<16) | (edgeCoefFixed.a&0xFFFF));
 	// frac part change each scanline
-	RDP_Write(cmdlist, (yCoefFixed.r<<16) | (yCoefFixed.g&0xFFFF));
-	RDP_Write(cmdlist, (yCoefFixed.b<<16) | (yCoefFixed.a&0xFFFF));
+	RDP_WriteWord((yCoefFixed.r<<16) | (yCoefFixed.g&0xFFFF));
+	RDP_WriteWord((yCoefFixed.b<<16) | (yCoefFixed.a&0xFFFF));
 
 	// // int part change along major edge
-	// RDP_Write(cmdlist, 0);
-	// RDP_Write(cmdlist, 0);
+	// RDP_WriteWord(0);
+	// RDP_WriteWord(0);
 	// // int part change each scanline
-	// RDP_Write(cmdlist, 0);
-	// RDP_Write(cmdlist, 0);
+	// RDP_WriteWord(0);
+	// RDP_WriteWord(0);
 	// // frac part change along major edge
-	// RDP_Write(cmdlist, 0);
-	// RDP_Write(cmdlist, 0);
+	// RDP_WriteWord(0);
+	// RDP_WriteWord(0);
 	// // frac part change each scanline
-	// RDP_Write(cmdlist, 0);
-	// RDP_Write(cmdlist, 0);
+	// RDP_WriteWord(0);
+	// RDP_WriteWord(0);
 
 	// TEXTURE COORDINATES
 
@@ -365,38 +538,69 @@ void RDP_FillTriangleWithShade(rdpcmdlist_t* cmdlist, rdp_vertex_t* verts)
 	uint32_t w = tofixed32(invw0); //((uint32_t)invw0) & 0xFF;
 
 	// int part at xh, floor(yh)
-	RDP_Write(cmdlist, (u&0xFFFF0000) | ((v>>16)&0xFFFF));
-	RDP_Write(cmdlist, (w&0xFFFF0000));
+	RDP_WriteWord((u&0xFFFF0000) | ((v>>16)&0xFFFF));
+	RDP_WriteWord((w&0xFFFF0000));
 	// int part change along scanline
-	RDP_Write(cmdlist, (xTexCoefFixed.u&0xFFFF0000) | ((xTexCoefFixed.v>>16)&0xFFFF));
-	RDP_Write(cmdlist, (xTexCoefFixed.w&0xFFFF0000));
+	RDP_WriteWord((xTexCoefFixed.u&0xFFFF0000) | ((xTexCoefFixed.v>>16)&0xFFFF));
+	RDP_WriteWord((xTexCoefFixed.w&0xFFFF0000));
 	// fractional part at xh, floor(yh)
-	RDP_Write(cmdlist, ((u&0xFFFF)<<16) | (v&0xFFFF));
-	RDP_Write(cmdlist, ((w&0xFFFF)<<16));
+	RDP_WriteWord(((u&0xFFFF)<<16) | (v&0xFFFF));
+	RDP_WriteWord(((w&0xFFFF)<<16));
 	// fractional part along scanline
-	RDP_Write(cmdlist, (xTexCoefFixed.u<<16) | (xTexCoefFixed.v&0xFFFF));
-	RDP_Write(cmdlist, (xTexCoefFixed.w<<16));
+	RDP_WriteWord((xTexCoefFixed.u<<16) | (xTexCoefFixed.v&0xFFFF));
+	RDP_WriteWord((xTexCoefFixed.w<<16));
 	// int part change along major edge
-	RDP_Write(cmdlist, (edgeTexCoefFixed.u&0xFFFF0000) | ((edgeTexCoefFixed.v>>16)&0xFFFF));
-	RDP_Write(cmdlist, (edgeTexCoefFixed.w&0xFFFF0000));
+	RDP_WriteWord((edgeTexCoefFixed.u&0xFFFF0000) | ((edgeTexCoefFixed.v>>16)&0xFFFF));
+	RDP_WriteWord((edgeTexCoefFixed.w&0xFFFF0000));
 	// int part change each scanline
-	RDP_Write(cmdlist, (yTexCoefFixed.u&0xFFFF0000) | ((yTexCoefFixed.v>>16)&0xFFFF));
-	RDP_Write(cmdlist, (yTexCoefFixed.w&0xFFFF0000));
+	RDP_WriteWord((yTexCoefFixed.u&0xFFFF0000) | ((yTexCoefFixed.v>>16)&0xFFFF));
+	RDP_WriteWord((yTexCoefFixed.w&0xFFFF0000));
 	// frac part change along major edge
-	RDP_Write(cmdlist, (edgeTexCoefFixed.u<<16) | (edgeTexCoefFixed.v&0xFFFF));
-	RDP_Write(cmdlist, (edgeTexCoefFixed.w<<16));
+	RDP_WriteWord((edgeTexCoefFixed.u<<16) | (edgeTexCoefFixed.v&0xFFFF));
+	RDP_WriteWord((edgeTexCoefFixed.w<<16));
 	// frac part change each scanline
-	RDP_Write(cmdlist, (yTexCoefFixed.u<<16) | (yTexCoefFixed.v&0xFFFF));
-	RDP_Write(cmdlist, (yTexCoefFixed.w<<16));
+	RDP_WriteWord((yTexCoefFixed.u<<16) | (yTexCoefFixed.v&0xFFFF));
+	RDP_WriteWord((yTexCoefFixed.w<<16));
 }
 
-void RDP_FillRect(rdpcmdlist_t* cmdlist, int32_t x, int32_t y, int32_t width, int32_t height)
+void RDP_FillRect(int32_t x, int32_t y, int32_t width, int32_t height)
 {
 	uint32_t x0 = x<<2;
 	uint32_t y0 = y<<2;
 	uint32_t x1 = (x+width)<<2;
 	uint32_t y1 = (y+height)<<2;
 
-	RDP_Write(cmdlist, (0x36<<24) | (x1<<12) | (y1));
-	RDP_Write(cmdlist, (x0<<12) | (y0));
+	RDP_WriteWord((0x36<<24) | (x1<<12) | (y1));
+	RDP_WriteWord((x0<<12) | (y0));
+}
+
+void RDP_ExecuteAndWait()
+{
+	// DataCacheWritebackInvalidate(cmdlist.buffer, cmdlist.cursor);
+	// uint32_t start = (unsigned long)_commandList & 0x1FFFFFFF;
+	// uint32_t end = start + cmdlist.cursor;
+	// MemoryBarrier();
+	// *DP_START = start;
+	// MemoryBarrier();
+	// *DP_END = end;
+	// MemoryBarrier();
+
+	// while (*DP_CURRENT != *DP_END);
+
+	// // TODO: Use interrupt
+	// while (*DP_STATUS & (DP_STATUS_TMEM_BUSY | DP_STATUS_PIPE_BUSY));
+
+	DataCacheWritebackInvalidate((void*)_commandListBuffer, _commandListCursor);
+	uint32_t start = (unsigned long)_commandList & 0x1FFFFFFF;
+	uint32_t end = start + _commandListCursor;
+	MemoryBarrier();
+	*DP_START = start;
+	MemoryBarrier();
+	*DP_END = end;
+	MemoryBarrier();
+
+	while (*DP_CURRENT != *DP_END);
+
+	// TODO: Use interrupt
+	while (*DP_STATUS & (DP_STATUS_TMEM_BUSY | DP_STATUS_PIPE_BUSY));
 }

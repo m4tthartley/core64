@@ -5,7 +5,7 @@
 
 #include "n64/core64.h"
 
-#include "n64/n64def.h"
+#include "n64/registers.h"
 #include "n64/rdp.h"
 #include "n64/system.c"
 #include "n64/print.c"
@@ -14,7 +14,8 @@
 #include "n64/interrupts.c"
 #include "n64/draw.c"
 
-#define IMPL
+// #define IMPL
+#include "n64/rdp.h"
 #include "n64/rdp.c"
 #include "n64/math.h"
 
@@ -27,54 +28,6 @@ volatile uint32_t __consoleType;
 uint32_t lastFrameTime;
 uint32_t __deltaTime;
 
-
-#define DP_BASE 0xA4100000
-#define DP_START ((volatile uint32_t*)(DP_BASE + 0x0))
-#define DP_END ((volatile uint32_t*)(DP_BASE + 0x4))
-#define DP_CURRENT ((volatile uint32_t*)(DP_BASE + 0x8))
-#define DP_STATUS ((volatile uint32_t*)(DP_BASE + 0xC))
-
-#define DP_STATUS_DMEN_DMA 0x001
-#define DP_STATUS_FREEZE 0x002
-#define DP_STATUS_FLUSH 0x004
-#define DP_STATUS_GCLK_ALIVE 0x008
-#define DP_STATUS_TMEM_BUSY 0x010
-#define DP_STATUS_PIPE_BUSY 0x020
-#define DP_STATUS_BUSY 0x040
-#define DP_STATUS_BUFFER_READY 0x080
-#define DP_STATUS_DMA_BUSY 0x100
-#define DP_STATUS_END_VALID 0x200
-#define DP_STATUS_START_VALID 0x400
-
-#define DP_STATUS_WRITE_XBUS_DMEM_DMA_RESET 0x001
-#define DP_STATUS_WRITE_XBUS_DMEM_DMA_SET 0x002
-#define DP_STATUS_WRITE_FREEZE_RESET 0x004
-#define DP_STATUS_WRITE_FREEZE_SET 0x008
-#define DP_STATUS_WRITE_FLUSH_RESET 0x010
-#define DP_STATUS_WRITE_FLUSH_SET 0x020
-#define DP_STATUS_WRITE_TMEM_COUNTER_RESET 0x040
-#define DP_STATUS_WRITE_PIPE_COUNTER_RESET 0x080
-#define DP_STATUS_WRITE_CMD_COUNTER_RESET 0x100
-#define DP_STATUS_WRITE_CLOCK_COUNTER_RESET 0x200
-
-
-// uint64_t* commandList = (uint64_t*)0xA0100000;
-
-// TODO: Should this be volatile or not?
-void DataCacheWritebackInvalidate(void* addr, uint32_t size)
-{
-	int linesize = 16;
-	void* line = (void*)((unsigned long)addr & ~(linesize-1));
-	uint32_t len = size + (addr-line);
-	for (int l=0; l<len; l+=linesize) {
-		asm ("\tcache %0, (%1)\n" :: "i" (0x15), "r" (line + l));
-	}
-}
-
-void MemoryBarrier()
-{
-	asm volatile ("" : : : "memory");
-}
 
 extern uint8_t texture_test_start[];
 extern uint8_t texture_test_end[];
@@ -285,25 +238,18 @@ int main()
 			// RDP_Write(&cmdlist, cmd.word1);
 	
 
-			rdpcmdlist_t cmdlist = RDP_CmdList(commandList, sizeof(commandList));
+			rdpcmdlist_t cmdlist = RDP_CmdList(_commandList, sizeof(_commandList));
+			RDP_StartCmdList(0, 0);
 	
-			// Pipe Sync
-			cmd.word0 = 0x27000000;
-			cmd.word1 = 0;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
-	
-			// Set Other Modes
-			cmd.word0 = (0x2F<<24) | (0x3<<20);
-			cmd.word1 = 0;//0x00200000;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
+			// RDP_PipeSync();
+			RDP_SetOtherModes(RDP_MODE_FILL);
 
-			// SetColorImage
-			cmd.word0 = (0x3F<<24) | (0<<21) | (2<<19) | (320-1);
-			cmd.word1 = VI_FRAMEBUFFERBASE & 0xFFFFFF;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
+			// // SetColorImage
+			// cmd.word0 = (0x3F<<24) | (0<<21) | (2<<19) | (320-1);
+			// cmd.word1 = VI_FRAMEBUFFERBASE & 0xFFFFFF;
+			// RDP_Write(&cmdlist, cmd.word0);
+			// RDP_Write(&cmdlist, cmd.word1);
+			RDP_SetColorImage(RDP_TEXTURE_IMAGE_FORMAT_RGBA16, 320);
 	
 			// Set Scissor
 			uint32_t sx0 = 1<<2;
@@ -322,11 +268,7 @@ int main()
 			RDP_Write(&cmdlist, cmd.word0);
 			RDP_Write(&cmdlist, cmd.word1);
 
-			// // Pipe Sync
-			cmd.word0 = 0x27000000;
-			cmd.word1 = 0;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
+			RDP_PipeSync();
 	
 			// // FillRect
 			// uint32_t x0 = 100<<2;
@@ -343,17 +285,14 @@ int main()
 			int w = 320-2;
 			int h = 288-2;
 
-			RDP_FillRect(&cmdlist, ox, oy, w/2, h/2);
-			RDP_FillRect(&cmdlist, ox + w/2, oy, w/2, h/2);
-			RDP_FillRect(&cmdlist, ox, oy + h/2, w/2, h/2);
-			RDP_FillRect(&cmdlist, ox + w/2, oy + h/2, w/2, h/2);
+			RDP_FillRect(ox, oy, w, h);
+			// RDP_FillRect(&cmdlist, ox, oy, w/2, h/2);
+			// RDP_FillRect(&cmdlist, ox + w/2, oy, w/2, h/2);
+			// RDP_FillRect(&cmdlist, ox, oy + h/2, w/2, h/2);
+			// RDP_FillRect(&cmdlist, ox + w/2, oy + h/2, w/2, h/2);
 
 			// Sync between different draw operations
-			// Pipe Sync
-			cmd.word0 = 0x27000000;
-			cmd.word1 = 0;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
+			RDP_PipeSync();
 	
 			// // SetFillColor
 			cmd.word0 = 0x37 << 24;
@@ -368,20 +307,16 @@ int main()
 				{200, 150},
 				{150, 200},
 			};
-			RDP_FillTriangle(&cmdlist, vertsa);
+			RDP_FillTriangle(vertsa);
 	
 			// more triangles
-			RDP_FillTriangle(&cmdlist, (vecscreen_t[]){
+			RDP_FillTriangle((vecscreen_t[]){
 				{140, 40},
 				{100, 60},
 				{120, 30},
 			});
 
-			// Pipe Sync
-			cmd.word0 = 0x27000000;
-			cmd.word1 = 0;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
+			RDP_PipeSync();
 			
 			// // SetFillColor
 			cmd.word0 = 0x37 << 24;
@@ -402,7 +337,7 @@ int main()
 
 			// // RDP_FillTriangle(&cmdlist, verts2);
 			// // Test rect
-			RDP_FillRect(&cmdlist, x, y, 50, 50);
+			RDP_FillRect(x, y, 50, 50);
 			// x0 = x<<2;
 			// y0 = y<<2;
 			// x1 = (x+50)<<2;
@@ -420,89 +355,66 @@ int main()
 			if (y < 0) speedy = 2;
 
 
-			RDP_PipeSync(&cmdlist);
-
-			// Set Other Modes
-			RDP_Write(&cmdlist, (0x2F<<24) | (0x0<<20) | (1<<11)); // 1cycle mode
-			RDP_Write(&cmdlist, 0);
-
-			// // Set Primitive Color
-			// RDP_Write(&cmdlist, 0x3A<<24);
-			// RDP_Write(&cmdlist, 0xFFFFFFFF);
-			RDP_SetPrimitiveColor(&cmdlist, Color32(255, 255, 0, 255));
-
-			// // Set Environment Color
-			// RDP_Write(&cmdlist, 0x3B<<24);
-			// RDP_Write(&cmdlist, 0xFFFFFFFF);
-			RDP_SetEnvironmentColor(&cmdlist, 0x00FFFFFF);
+			RDP_PipeSync();
+			RDP_SetOtherModes(RDP_MODE_1CYCLE | RDP_MODE_TEX_RGB);
+			RDP_SetPrimitiveColor(Color32(0, 255, 255, 255));
+			RDP_SetEnvironmentColor(0x00FFFFFF);
 
 			uint32_t tileWidth = 32;
 			uint32_t tileHeight = 32;
+			RDP_SetTextureImage(RDP_TEXTURE_IMAGE_FORMAT_RGBA16, 32, __heap_start);
+			RDP_PipeSync();
 
-			// Set Texture Image
-			RDP_Write(&cmdlist, (0x3D<<24) | (/*format*/0<<21) | (/*size*/2<<19) | (/*width*/32-1));
-			RDP_Write(&cmdlist, (((uintptr_t)__heap_start&0x1FFFFFFF)|0xA0000000) /*>> 3*/);
+			RDP_SetTile(7, RDP_TEXTURE_IMAGE_FORMAT_RGBA16, 32, 0);
 
-			RDP_PipeSync(&cmdlist);
+			RDP_LoadTile(7, 0, 0, tileWidth, tileHeight);
+			// RDP_LoadBlock(7, 0, 0, 32*32);
 
-			// Set Tile
-			uint32_t line = 32*2 / 8;
-			RDP_Write(&cmdlist, (0x35<<24) | (/*format*/0<<21) | (/*size*/2<<19) | (line<<9) | (/*tmem addr*/0));
-			RDP_Write(&cmdlist, (/*tile*/7<<24));
-
-			// Load Tile
-			RDP_Write(&cmdlist, (0x34<<24) | (/*upper left S*/0<<12) | (/*upper left T*/0<<0));
-			RDP_Write(&cmdlist, (/*tile*/7<<24) | (/*lower right S*/((tileWidth-1)<<2)<<12) | (/*lower right T*/((tileHeight-1)<<2)<<0));
-			// // Load Block
-			// RDP_Write(&cmdlist, (0x33<<24));
-			// RDP_Write(&cmdlist, (/*tile*/7<<24) | (/*lower right S*/((32*32-1))<<12) | ((2048+line-1)/line) /*((1<<11) / 32)*/);
-
-			// Load Sync
-			RDP_Write(&cmdlist, 0x26000000);
-			RDP_Write(&cmdlist, 0);
+			// // Load Sync
+			// RDP_Write(&cmdlist, 0x26000000);
+			// RDP_Write(&cmdlist, 0);
+			RDP_LoadSync();
 
 			// // Set Tile
-			// line = 32*2 / 8;
-			RDP_Write(&cmdlist, (0x35<<24) | (/*format*/0<<21) | (/*size*/2<<19) | (line<<9) | (/*tmem addr*/0));
-			RDP_Write(&cmdlist, (/*tile*/0<<24));
+			// uint32_t line = 32*2 / 8;
+			// RDP_Write(&cmdlist, (0x35<<24) | (/*format*/0<<21) | (/*size*/2<<19) | (line<<9) | (/*tmem addr*/0));
+			// RDP_Write(&cmdlist, (/*tile*/0<<24));
+			RDP_SetTile(0, RDP_TEXTURE_IMAGE_FORMAT_RGBA16, 32, 0);
 
-			// Set Tile Size
-			RDP_Write(&cmdlist, (0x32<<24));
-			RDP_Write(&cmdlist, (/*tile*/0<<24) | (((tileWidth-1)<<2)<<12) | (((tileHeight-1)<<2)<<0));
+			// // Set Tile Size
+			// RDP_Write(&cmdlist, (0x32<<24));
+			// RDP_Write(&cmdlist, (/*tile*/0<<24) | (((tileWidth-1)<<2)<<12) | (((tileHeight-1)<<2)<<0));
+			RDP_SetTileSize(0, 32, 32);
 
 			// Set Combine Mode
-			RDP_SetCombineMode(&cmdlist, RDP_CombinerRGB(RDP_COMB_TEX0, 0, RDP_COMB_ENVIRONMENT, 0));
+			RDP_SetCombineMode(RDP_CombinerRGB(RDP_COMB_TEX0, 0, RDP_COMB_PRIMITIVE, 0));
 
-			// Pipe Sync
-			RDP_Write(&cmdlist, 0x27000000);
-			RDP_Write(&cmdlist, 0);
+			RDP_PipeSync();
 			
 			// Texture Rectangle
 			{
 				uint32_t w = 100;
 				uint32_t h = 100;
 				// u10.2 format
-				uint32_t x0 = (150) << 2;
+				uint32_t x0 = (75) << 2;
 				uint32_t y0 = (150) << 2;
-				uint32_t x1 = (150+w) << 2;
+				uint32_t x1 = (75+w) << 2;
 				uint32_t y1 = (150+h) << 2;
 				RDP_Write(&cmdlist, (0x24<<24) | (x1<<12) | (y1<<0));
 				RDP_Write(&cmdlist, (0<<24) | (x0<<12) | (y0<<0));
 				
-				int32_t u = ((-4)<<5) & 0xFFFF;
-				int32_t v = ((-4)<<5) & 0xFFFF;
-				int32_t du = ((tileWidth+8)<<10) / 100;
-				int32_t dv = ((tileHeight+8)<<10) / 100;
+				int32_t u = ((0)<<5) & 0xFFFF;
+				int32_t v = ((0)<<5) & 0xFFFF;
+				int32_t du = ((tileWidth)<<10) / 100;
+				int32_t dv = ((tileHeight)<<10) / 100;
 				RDP_Write(&cmdlist, (u<<16) | (v<<0));
 				RDP_Write(&cmdlist, (du<<16) | (dv<<0));
 			}
 			
-			// Pipe Sync
-			RDP_Write(&cmdlist, 0x27000000);
-			RDP_Write(&cmdlist, 0);
+			RDP_PipeSync();
 			
 			// Set Combine Mode
-			RDP_SetCombineMode(&cmdlist, RDP_CombinerRGB(RDP_COMB_TEX0, 0, RDP_COMB_SHADE, 0));
+			RDP_SetCombineMode(RDP_CombinerRGB(RDP_COMB_TEX0, 0, RDP_COMB_SHADE, 0));
 			
 			// Shaded triangle
 			rdp_vertex_t verts[] = {
@@ -510,28 +422,11 @@ int main()
 				{{260, 100}, {0, 0, 0, 255}, {32.0f, 0.0f}},
 				{{230, 150}, {255, 255, 255, 255}, {32.0f, 32.0f}},
 			};
-			RDP_FillTriangleWithShade(&cmdlist, verts);
+			RDP_FillTriangleWithShade(verts);
 
 
-			// Full Sync
-			cmd.word0 = 0x29000000;
-			cmd.word1 = 0;
-			RDP_Write(&cmdlist, cmd.word0);
-			RDP_Write(&cmdlist, cmd.word1);
-	
-			DataCacheWritebackInvalidate(cmdlist.buffer, cmdlist.cursor);
-			uint32_t start = (unsigned long)commandList & 0x1FFFFFFF;
-			uint32_t end = start + cmdlist.cursor;
-			MemoryBarrier();
-			*DP_START = start;
-			MemoryBarrier();
-			*DP_END = end;
-			MemoryBarrier();
-	
-			while (*DP_CURRENT != *DP_END);
-	
-			// TODO: Use interrupt
-			while (*DP_STATUS & (DP_STATUS_TMEM_BUSY | DP_STATUS_PIPE_BUSY));
+			RDP_FullSync();
+			RDP_ExecuteAndWait();
 		}
 #endif
 

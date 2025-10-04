@@ -89,16 +89,30 @@ typedef uint32_t color32_t;
 rdpcmdlist_t RDP_CmdList(void* buffer, uint32_t size);
 void RDP_Write(rdpcmdlist_t* cmdlist, uint32_t word);
 
-void RDP_LoadSync(rdpcmdlist_t* cmdlist);
-void RDP_PipeSync(rdpcmdlist_t* cmdlist);
-void RDP_FullSync(rdpcmdlist_t* cmdlist);
-void RDP_SetPrimitiveColor(rdpcmdlist_t* cmdlist, color32_t color);
-void RDP_SetEnvironmentColor(rdpcmdlist_t* cmdlist, color32_t color);
+void RDP_LoadSync();
+void RDP_PipeSync();
+void RDP_FullSync();
+
+void RDP_SetOtherModes(uint64_t mask);
+
+void RDP_SetTileSize(uint32_t tileIndex, uint32_t width, uint32_t height);
+void RDP_LoadBlock(uint32_t tileIndex, uint32_t s0, uint32_t t0, uint32_t length);
+void RDP_LoadTile(uint32_t tileIndex, uint32_t s0, uint32_t t0, uint32_t s1, uint32_t t1);
+void RDP_SetTile(uint32_t tileIndex, uint32_t textureFormatMask, uint32_t width, uint32_t tmemOffset);
+
+void RDP_SetFogColor(color32_t color);
+void RDP_SetBlendColor(color32_t color);
+void RDP_SetPrimitiveColor(color32_t color);
+void RDP_SetEnvironmentColor(color32_t color);
+
 uint64_t RDP_CombinerRGB(uint64_t a, uint64_t b, uint64_t c, uint64_t d);
-void RDP_SetCombineMode(rdpcmdlist_t* cmdlist, uint64_t combinerMask);
-void RDP_FillTriangle(rdpcmdlist_t* cmdlist, vecscreen_t* verts);
-void RDP_FillTriangleWithShade(rdpcmdlist_t* cmdlist, rdp_vertex_t* verts);
-void RDP_FillRect(rdpcmdlist_t* cmdlist, int32_t x, int32_t y, int32_t width, int32_t height);
+void RDP_SetCombineMode(uint64_t combinerMask);
+
+void RDP_SetTextureImage(uint32_t textureFormatMask, uint32_t width, void* address);
+
+void RDP_FillTriangle(vecscreen_t* verts);
+void RDP_FillTriangleWithShade(rdp_vertex_t* verts);
+void RDP_FillRect(int32_t x, int32_t y, int32_t width, int32_t height);
 
 
 #endif

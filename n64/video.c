@@ -6,13 +6,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "n64def.h"
+#include "video.h"
+#include "registers.h"
 
-
-typedef struct {
-	int16_t x, y;
-	int16_t width, height;
-} video_rect_t;
 
 volatile uint32_t __viInterruptCounter = 0;
 volatile uint32_t __viInterrupt = 0;

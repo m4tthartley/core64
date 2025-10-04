@@ -33,7 +33,7 @@
 #define __EF_BADADDR 268
 
 
-// COP0 registers
+// COP0 registers for use in ASM
 #define C0_RANDOM $1
 #define C0_BADVADDR $8
 #define C0_COUNT $9
@@ -44,6 +44,7 @@
 #define C0_PROID $15
 #define C0_CONFIG $16
 #define C0_WATCHPOINT $18
+
 
 // Status register bitmasks
 #define StatusRegister_Cop1Usable			0x20000000 // Floating point coprocessor usable
@@ -97,7 +98,7 @@
 #define C0_INTERRUPT_TIMER C0_INTERRUPT_7
 
 
-// Mips Interface
+// MI (MIPS INTERFACE)
 #define MI_BASE 0xA4300000
 #define MI_MODE 0
 #define MI_VERSION 1
@@ -126,7 +127,7 @@
 #define MI_INTERRUPT_DP 0x20
 
 
-// Video Interface
+// VI (VIDEO INTERFACE)
 #define VI_BASE 0xA4400000
 // #define VI_CURSOR (VI_BASE + 0x10)
 
@@ -168,6 +169,37 @@
 #define VI_AA_DISABLED (0b11<<8)
 
 #define VI_FRAMEBUFFERBASE 0xA0200000
+
+
+// DP (DISPLAY PROCESSOR INTERFACE)
+#define DP_BASE 0xA4100000
+#define DP_START ((volatile uint32_t*)(DP_BASE + 0x0))
+#define DP_END ((volatile uint32_t*)(DP_BASE + 0x4))
+#define DP_CURRENT ((volatile uint32_t*)(DP_BASE + 0x8))
+#define DP_STATUS ((volatile uint32_t*)(DP_BASE + 0xC))
+
+#define DP_STATUS_DMEN_DMA 0x001
+#define DP_STATUS_FREEZE 0x002
+#define DP_STATUS_FLUSH 0x004
+#define DP_STATUS_GCLK_ALIVE 0x008
+#define DP_STATUS_TMEM_BUSY 0x010
+#define DP_STATUS_PIPE_BUSY 0x020
+#define DP_STATUS_BUSY 0x040
+#define DP_STATUS_BUFFER_READY 0x080
+#define DP_STATUS_DMA_BUSY 0x100
+#define DP_STATUS_END_VALID 0x200
+#define DP_STATUS_START_VALID 0x400
+
+#define DP_STATUS_WRITE_XBUS_DMEM_DMA_RESET 0x001
+#define DP_STATUS_WRITE_XBUS_DMEM_DMA_SET 0x002
+#define DP_STATUS_WRITE_FREEZE_RESET 0x004
+#define DP_STATUS_WRITE_FREEZE_SET 0x008
+#define DP_STATUS_WRITE_FLUSH_RESET 0x010
+#define DP_STATUS_WRITE_FLUSH_SET 0x020
+#define DP_STATUS_WRITE_TMEM_COUNTER_RESET 0x040
+#define DP_STATUS_WRITE_PIPE_COUNTER_RESET 0x080
+#define DP_STATUS_WRITE_CMD_COUNTER_RESET 0x100
+#define DP_STATUS_WRITE_CLOCK_COUNTER_RESET 0x200
 
 
 #endif
