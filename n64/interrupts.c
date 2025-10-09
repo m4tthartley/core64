@@ -236,7 +236,7 @@ void HandleInterrupt_Timer()
 
 	// for (;;);
 
-	Log("Timing Interrupt");
+	// Log("Timing Interrupt");
 	return;
 }
 
@@ -264,7 +264,7 @@ void HandleInterrupt_MI()
 
 	if (type & MI_INTERRUPT_PI) {
 		// TODO: Call a user defined callback here
-		Log("MI_INTERRUPT_PI");
+		// Log("MI_INTERRUPT_PI");
 		return;
 	}
 

@@ -340,11 +340,11 @@ void RDP_FillTriangle(vecscreen_t* verts)
 	RDP_WriteWord(dxmdy);
 }
 
-void RDP_FillTriangleWithShade(rdp_vertex_t* verts)
+void RDP_Triangle(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 {
-	rdp_vertex_t v0 = verts[0];
-	rdp_vertex_t v1 = verts[1];
-	rdp_vertex_t v2 = verts[2];
+	// rdp_vertex_t v0 = verts[0];
+	// rdp_vertex_t v1 = verts[1];
+	// rdp_vertex_t v2 = verts[2];
 
 	if (v0.pos.y > v1.pos.y) swap(v0, v1);
 	if (v1.pos.y > v2.pos.y) swap(v1, v2);
@@ -599,6 +599,15 @@ void RDP_FillTriangleWithShade(rdp_vertex_t* verts)
 	// frac part change each scanline
 	RDP_WriteWord((yTexCoefFixed.u<<16) | (yTexCoefFixed.v&0xFFFF));
 	RDP_WriteWord((yTexCoefFixed.w<<16));
+}
+
+void RDP_FillTriangleWithShade(rdp_vertex_t* verts)
+{
+	rdp_vertex_t v0 = verts[0];
+	rdp_vertex_t v1 = verts[1];
+	rdp_vertex_t v2 = verts[2];
+
+	RDP_Triangle(v0, v1, v2);
 }
 
 void RDP_TextureRectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t s0, uint16_t t0, uint16_t s1, uint16_t t1)

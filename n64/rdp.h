@@ -113,6 +113,7 @@ void RDP_SetTextureImage(uint32_t textureFormatMask, uint32_t width, void* addre
 
 void RDP_FillTriangle(vecscreen_t* verts);
 void RDP_FillTriangleWithShade(rdp_vertex_t* verts);
+void RDP_Triangle(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2);
 void RDP_FillRect(int32_t x, int32_t y, int32_t width, int32_t height);
 
 

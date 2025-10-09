@@ -23,5 +23,7 @@ void DrawFontStringWithBG(uint32_t* font, char* str, int x, int y);
 #define swap(a, b) { typeof(a) __tmp=a; a=b; b=__tmp; }
 // #define swap(a, b) a=b-a; b=b-a; a=b+a;
 
+#define arraysize(a) (sizeof(a)/sizeof(a[0]))
+
 
 #endif
