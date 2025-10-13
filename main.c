@@ -5,6 +5,7 @@
 
 #include "n64/core64.h"
 #include "n64/math.h"
+#include "n64/system.h"
 #include "n64/video.c"
 #include "n64/rdp.c"
 #include "n64/gfx.c"
@@ -22,7 +23,13 @@ int main()
 	static fixed32_t time = 0;
 	static fixed32_t time2 = 0x10000;
 
+	void* framebuffer = UncachedAddress(AllocMemory(320*288*2, 64));
+	void* depthbuffer = UncachedAddress(AllocMemory(320*288*2, 64));
+	SetVideoFramebuffer(framebuffer);
+
 	for (;;) {
+		memset(depthbuffer, 0xFFFF, 320*288*2);
+
 		// PollTime();
 		// time += GetDeltaTime()
 		time += tofixed32(2.0f / 50.0f);
@@ -30,7 +37,8 @@ int main()
 
 		RDP_StartCmdList(0, 0);
 
-		RDP_SetColorImage(RDP_TEXTURE_IMAGE_FORMAT_RGBA16, 320);
+		RDP_SetColorImage(RDP_TEXTURE_IMAGE_FORMAT_RGBA16, 320, framebuffer);
+		RDP_SetDepthImage(depthbuffer);
 		RDP_SetScissor(0, 0, 320, 288);
 		
 		RDP_SetOtherModes(RDP_MODE_FILL);
@@ -40,7 +48,7 @@ int main()
 		RDP_SetFillColor16((0<<11) | (0<<6) | (31<<1) | 1);
 		RDP_FillRect(100 + fx32tof(SineFx(time)) * 100.0f, 100 + fx32tof(CosineFx(time)) * 100.0f, 10, 10);
 
-		RDP_SetOtherModes(RDP_MODE_1CYCLE | RDP_MODE_TEX_RGB);
+		RDP_SetOtherModes(RDP_MODE_1CYCLE | RDP_MODE_TEX_RGB | RDP_MODE_TEX_PERSP | (1<<5) | (1<<4));
 		RDP_SetPrimitiveColor(Color32(0, 255, 255, 255));
 		RDP_SetEnvironmentColor(0x00FFFFFF);
 		
@@ -54,23 +62,78 @@ int main()
 		RDP_SetTileSize(0, 32, 32);
 
 		RDP_SetCombineMode(RDP_CombinerRGB(RDP_COMB_TEX0, 0, RDP_COMB_SHADE, 0));
+		// rdp_vertex_t verts[] = {
+		// 	{{200, 50}, {255, 255, 255, 255}, {0.0f, 0.0f}},
+		// 	{{260, 100}, {0, 0, 0, 255}, {32.0f, 0.0f}},
+		// 	{{230, 150}, {255, 255, 255, 255}, {32.0f, 32.0f}},
+		// 	{{170, 100}, {255, 255, 255, 255}, {0.0f, 32.0f}},
+		// };
+		// rdp_vertex_t verts[] = {
+		// 	{{0, -50}, {255, 255, 255, 255}, {0.0f, 0.0f}},
+		// 	{{60, 0}, {0, 0, 0, 255}, {32.0f, 0.0f}},
+		// 	{{30, 50}, {255, 255, 255, 255}, {32.0f, 32.0f}},
+		// 	{{-30, 0}, {255, 255, 255, 255}, {0.0f, 32.0f}},
+		// };
 		rdp_vertex_t verts[] = {
-			{{200, 50}, {255, 255, 255, 255}, {0.0f, 0.0f}},
-			{{260, 100}, {0, 0, 0, 255}, {32.0f, 0.0f}},
-			{{230, 150}, {255, 255, 255, 255}, {32.0f, 32.0f}},
-			{{170, 100}, {255, 255, 255, 255}, {0.0f, 32.0f}},
+			{ .pos={-0.5f, -0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f, -0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
+			{ .pos={+0.5f, +0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
+			{ .pos={-0.5f, +0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+
+			{ .pos={+0.5f, -0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={-0.5f, -0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
+			{ .pos={-0.5f, +0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
+			{ .pos={+0.5f, +0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+
+			{ .pos={-0.5f, -0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={-0.5f, -0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
+			{ .pos={-0.5f, +0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
+			{ .pos={-0.5f, +0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+
+			{ .pos={+0.5f, -0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f, -0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
+			{ .pos={+0.5f, +0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
+			{ .pos={+0.5f, +0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+
+			{ .pos={-0.5f, +0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f, +0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
+			{ .pos={+0.5f, +0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
+			{ .pos={-0.5f, +0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+
+			{ .pos={-0.5f, -0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f, -0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
+			{ .pos={+0.5f, -0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
+			{ .pos={-0.5f, -0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
 		};
 		// RDP_FillTriangleWithShade(verts2);
 
 		float sin = fx32tof(SineFx(time));
 		float cos = fx32tof(CosineFx(time));
-		for (int i=0; i<4; ++i) {
+		for (int i=0; i<arraysize(verts); ++i) {
 			// nice
-			verts[i].pos = vec2(verts[i].pos.x*cos + verts[i].pos.y*sin, verts[i].pos.y*cos + verts[i].pos.x*sin);
+			verts[i].pos.xyz = vec3(verts[i].pos.x*cos + verts[i].pos.z*sin, verts[i].pos.y + fx32tof(SineFx(time/2))*2, verts[i].pos.z*cos - verts[i].pos.x*sin);
 		}
 
-		uint16_t indices[] = {0, 1, 2, 0, 2, 3};
-		GFX_Draw(verts, indices, 6);
+		GFX_SetPosition(200, 100);
+
+		// uint16_t indices[] = {
+		// 	0, 1, 2, 0, 2, 3,
+		// 	4, 0, 3, 4, 3, 7,
+		// 	4, 5, 6, 4, 6, 7,
+		// 	1, 5, 6, 1, 6, 2,
+		// };
+		// GFX_DrawIndices(verts, indices, arraysize(indices));
+		// GFX_DrawVertices(verts, arraysize(verts));
+
+		uint16_t indices[] = {
+			0, 1, 2, 0, 2, 3,
+			4, 5, 6, 4, 6, 7,
+			8, 9, 10, 8, 10, 11,
+			12, 13, 14, 12, 14, 15,
+			16, 17, 18, 16, 18, 19,
+			20, 21, 22, 20, 22, 23,
+		};
+		GFX_DrawIndices(verts, indices, arraysize(indices));
 
 		RDP_FullSync();
 		RDP_ExecuteAndWait();

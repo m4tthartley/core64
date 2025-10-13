@@ -116,9 +116,10 @@ interupt_handler:
 	nop
 	addiu $sp, $sp, 32
 
-infloop:
-	j infloop
-	nop
+	j interrupt_return
+# infloop:
+# 	j infloop
+# 	nop
 
 interrupt:
 	# check for reset interrupt (prenmi)

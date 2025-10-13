@@ -98,3 +98,27 @@ void DrawFontStringWithBG(uint32_t* font, char* str, int x, int y)
 		DrawFontGlyphWithBG(font, c, x+idx*6, y);
 	}
 }
+
+void DrawStr(int x, int y, char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	char str[256];
+	vsprint(str, 256, fmt, args);
+	DrawFontString(N64Font, str, x, y);
+
+	va_end(args);
+}
+
+void DrawStrBG(int x, int y, char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	char str[256];
+	vsprint(str, 256, fmt, args);
+	DrawFontStringWithBG(N64Font, str, x, y);
+
+	va_end(args);
+}

@@ -41,7 +41,7 @@ void HandleInterrupt_Timer();
 void HandleInterrupt_Cart();
 void HandleInterrupt_MI();
 
-void AssertionScreen(char* function, char* filename, int line, char* expr);
+void AssertionScreen(const char* function, const char* filename, int line, const char* expr);
 
 
 #endif

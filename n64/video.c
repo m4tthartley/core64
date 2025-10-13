@@ -173,3 +173,9 @@ void ResetVideoCurrentLine()
 	volatile uint32_t* viregs = (uint32_t*)VI_BASE;
 	viregs[VI_CURRENTLINE] = viregs[VI_CURRENTLINE];
 }
+
+void SetVideoFramebuffer(void* addr)
+{
+	volatile uint32_t* viregs = (uint32_t*)VI_BASE;
+	viregs[VI_ORIGIN] = (uintptr_t)addr;
+}

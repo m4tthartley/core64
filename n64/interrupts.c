@@ -137,21 +137,52 @@ void ExceptionHandler(interruptframe_t* frame)
 	DrawFontStringWithBG(N64Font, "CPU Exception", 10, 5);
 	
 	uint8_t cause = (frame->cause & 0b01111100) >> 2;
+
+	// if (cause == 15) {
+	// 	// ignore floating point error
+	// 	return;
+	// }
+
 	
 	char str[256];
 	sprint(str, 256, "ExcCode(%u)  %s", cause, GetExcCodeName(cause));
 	DrawFontStringWithBG(N64Font, str, 10, 25);
+	
+	switch (cause) {
+		case 15: {
+			uint32_t fcsr = _GetFCSR();
+			switch ((fcsr>>12) & 0x3F) {
+				case (1<<1):
+					DrawFontStringWithBG(N64Font, "Inexact", 10, 45);
+					break;
+				case (1<<2):
+					DrawFontStringWithBG(N64Font, "Underflow", 10, 45);
+					break;
+				case (1<<3):
+					DrawFontStringWithBG(N64Font, "Overflow", 10, 45);
+					break;
+				case (1<<4):
+					DrawFontStringWithBG(N64Font, "Divide by Zero", 10, 45);
+					break;
+				case (1<<5):
+					DrawFontStringWithBG(N64Font, "Invalid Operation", 10, 45);
+					break;
+			}
+		} break;
 
-	sprint(str, 256, "Stack pointer: %32x", frame->sp);
-	DrawFontStringWithBG(N64Font, str, 10, 45);
-	sprint(str, 256, "Status: %32x", frame->status);
-	DrawFontStringWithBG(N64Font, str, 10, 55);
-	sprint(str, 256, "Cause: %8x, %u", cause, cause);
-	DrawFontStringWithBG(N64Font, str, 10, 65);
-	sprint(str, 256, "Bad Address: %32x", /**(uint32_t*)0xA0001000*/ frame->badaddr);
-	DrawFontStringWithBG(N64Font, str, 10, 75);
-	sprint(str, 256, "EPC: %32x", frame->epc);
-	DrawFontStringWithBG(N64Font, str, 10, 85);
+		default:
+			sprint(str, 256, "Stack pointer: %32x", frame->sp);
+			DrawFontStringWithBG(N64Font, str, 10, 45);
+			sprint(str, 256, "Status: %32x", frame->status);
+			DrawFontStringWithBG(N64Font, str, 10, 55);
+			sprint(str, 256, "Cause: %8x, %u", cause, cause);
+			DrawFontStringWithBG(N64Font, str, 10, 65);
+			sprint(str, 256, "Bad Address: %32x", /**(uint32_t*)0xA0001000*/ frame->badaddr);
+			DrawFontStringWithBG(N64Font, str, 10, 75);
+			sprint(str, 256, "EPC: %32x", frame->epc);
+			DrawFontStringWithBG(N64Font, str, 10, 85);
+			break;
+	}
 
 	uint16_t color = 0;
 	// uint32_t idx = 0;
@@ -190,6 +221,8 @@ void ExceptionHandler(interruptframe_t* frame)
 	// 	fb[(240-8+y)*320 + (x)] = (color);
 	// 	color += 32;
 	// }
+
+	for (;;);
 }
 
 void UnhandledInterrupt(uint32_t type)
@@ -271,7 +304,7 @@ void HandleInterrupt_MI()
 	UnhandledInterrupt(type);
 }
 
-void AssertionScreen(char* function, char* filename, int line, char* expr)
+void AssertionScreen(const char* function, const char* filename, int line, const char* expr)
 {
 	char str[256];
 	sprint(str, 256, "Assertion Fired");
@@ -280,7 +313,7 @@ void AssertionScreen(char* function, char* filename, int line, char* expr)
 	sprint(str, 256, "in %s(), at %s:%i", function, filename, line);
 	DrawFontStringWithBG(N64Font, str, 320/2 - (strlen(str)*6/2), 20);
 
-	DrawFontStringWithBG(N64Font, expr, 320/2 - (strlen(expr)*6/2), 30);
+	DrawFontStringWithBG(N64Font, (char*)expr, 320/2 - (strlen(expr)*6/2), 30);
 
 	for (;;);
 }

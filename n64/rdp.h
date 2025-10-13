@@ -61,7 +61,8 @@ typedef struct {
 } vecscreen_t; // Currently just 32bit uint
 
 typedef struct {
-	vec2_t pos;
+	vec4_t pos;
+	float invw;
 	vec4_t color;
 	vec2_t texcoord;
 } rdp_vertex_t;

@@ -9,8 +9,8 @@
 #include "util.h"
 
 
-#define PhysicalAddress(addr) (addr & 0x1FFFFFFF)
-#define UncachedAddress(addr) (PhysicalAddress(addr) | 0xA0000000)
+#define PhysicalAddress(addr) (void*)((uintptr_t)addr & 0x1FFFFFFF)
+#define UncachedAddress(addr) (void*)((uintptr_t)PhysicalAddress(addr) | 0xA0000000)
 
 void DataCacheWritebackInvalidate(void* addr, uint32_t size);
 void MemoryBarrier();

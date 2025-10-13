@@ -7,6 +7,7 @@
 #include <stdarg.h>
 
 #include "core64.h"
+#include "util.h"
 
 
 volatile uint32_t __memorySize;
@@ -18,6 +19,7 @@ volatile uint32_t __consoleType;
 // MEMORY
 extern uint8_t __heap_start[];
 extern uint8_t __heap_end[];
+uint32_t __heapCursor = 0;
 
 // TODO: Should this be volatile or not?
 void DataCacheWritebackInvalidate(void* addr, uint32_t size)
@@ -39,6 +41,23 @@ void MemoryBarrier()
 // {
 // 	return addr & 0x1FFFFFFF;
 // }
+
+void* AllocMemory(uint32_t size, uint32_t alignment)
+{
+	assert((alignment & (alignment-1)) == 0);
+
+	uintptr_t addr = (uintptr_t)__heap_start + __heapCursor;
+
+	uint32_t mask = alignment - 1;
+	if (addr & mask) {
+		addr &= ~mask;
+		addr += alignment;
+	}
+
+	__heapCursor = (addr - (uintptr_t)__heap_start) + size;
+
+	return (void*)addr;
+}
 
 
 // TIME

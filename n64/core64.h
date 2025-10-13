@@ -30,6 +30,7 @@ void DrawFontGlyph(uint32_t* font, uint8_t glyph, int x, int y);
 void DrawFontGlyphWithBG(uint32_t* font, uint8_t glyph, int x, int y);
 void DrawFontString(uint32_t* font, char* str, int x, int y);
 void DrawFontStringWithBG(uint32_t* font, char* str, int x, int y);
+void DrawStr(int x, int y, char* fmt, ...);
 
 // FONTS
 #include "../_resources/n64font.h"
@@ -37,6 +38,7 @@ void DrawFontStringWithBG(uint32_t* font, char* str, int x, int y);
 
 // ASM
 uint32_t _GetClock();
+uint32_t _GetFCSR();
 
 
 #endif

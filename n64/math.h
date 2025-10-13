@@ -19,6 +19,8 @@
 #define PIFX 205887
 #define PI2FX (PIFX * 2)
 
+#define EPSILON 1e-10f
+
 typedef int16_t fixed16_t; // fixed point s8.8
 typedef int32_t fixed32_t; // fixed point s16.16
 typedef fixed32_t fx32;
@@ -64,6 +66,8 @@ typedef union {
 	struct {
 		float r, g, b, a;
 	};
+	vec3_t xyz;
+	float f[4];
 } vec4_t;
 
 typedef union {
@@ -102,6 +106,15 @@ inline float fx32tof(fixed32_t x)
 	return result;
 }
 
+inline float divsafe(float x, float div)
+{
+	if (div < EPSILON && div > -EPSILON) {
+		return 0;
+	}
+
+	return x / div;
+}
+
 inline vec2_t vec2(float x, float y)
 {
 	return (vec2_t){x, y};
@@ -135,9 +148,17 @@ inline vec3_t div3(vec3_t a, vec3_t b)
 {
 	return (vec3_t){a.x/b.x, a.y/b.y, a.z/b.z};
 }
-inline vec3_t div3f(vec3_t a, float f)
+inline vec3_t div3f(vec3_t a, float b)
 {
-	return (vec3_t){a.x/f, a.y/f, a.z/f};
+	return div3(a, vec3f(b));
+}
+inline vec3_t div3safe(vec3_t a, vec3_t b)
+{
+	return (vec3_t){divsafe(a.x, b.x), divsafe(a.y, b.y), divsafe(a.z, b.z)};
+}
+inline vec3_t div3fsafe(vec3_t a, float b)
+{
+	return div3safe(a, vec3f(b));
 }
 
 inline vec3fx32_t vec3tofixed32(vec3_t v)
@@ -176,7 +197,19 @@ inline vec4_t div4(vec4_t a, vec4_t b)
 }
 inline vec4_t div4f(vec4_t a, float f)
 {
-	return (vec4_t){a.x/f, a.y/f, a.z/f, a.w/f};
+	uint32_t dSignBit = (1<<31) & *(uint32_t*)&f;
+	// float dSignBit = (1<<31) & f;
+	if (f < EPSILON && f > -EPSILON) {
+		// f = EPSILON;
+		// *(uint32_t*)&f &= dSignBit;
+		return vec4f(0);
+	}
+	return (vec4_t){
+		a.x/f,
+		a.y/f,
+		a.z/f,
+		a.w/f
+	};
 }
 
 inline vec4fixed32_t vec4tofixed32(vec4_t v)
@@ -209,6 +242,91 @@ inline fixed32_t floorfx32(fixed32_t x)
 }
 
 
+// TRIG
+// inline uint32_t GetTableIndex()
+// {
+
+// }
+static inline float SineFloat(float t)
+{
+	t *= __table_size / PI2;
+	float f = fract(t);
+	int32_t i = floor(t);
+	uint32_t u = i;
+	uint32_t idx0 = u & (__table_size-1);
+	uint32_t idx1 = (u+1) & (__table_size-1);
+
+	float value0 = __table_sine_float[idx0];
+	float value1 = __table_sine_float[idx1];
+
+	return value0 + (value1-value0)*f;
+}
+
+static inline fixed32_t SineFx(fixed32_t t)
+{
+	fixed32_t offset = (t) * (itofx32(__table_size) / PI2FX);
+	// NOTE: This is not the correct way to get the fractional part
+	// but for this case it is what we want
+	fixed32_t f = offset & 0xFFFF;
+	uint32_t u = floorfx32(offset) >> 16;
+	uint32_t idx0 = u & (__table_size-1);
+	uint32_t idx1 = (u+1) & (__table_size-1);
+
+	fixed32_t value0 = __table_sine_fixed[idx0];
+	fixed32_t value1 = __table_sine_fixed[idx1];
+
+	return value0 + ((value1-value0)*f >> 16);
+}
+
+static inline float CosineFloat(float t)
+{
+	t *= __table_size / PI2;
+	float f = fract(t);
+	int32_t i = floor(t);
+	uint32_t u = i;
+	uint32_t idx0 = u & (__table_size-1);
+	uint32_t idx1 = (u+1) & (__table_size-1);
+
+	assert(idx0 < arraysize(__table_cosine_float));
+	assert(idx1 < arraysize(__table_cosine_float));
+	float value0 = __table_cosine_float[idx0];
+	float value1 = __table_cosine_float[idx1];
+
+	return value0 + (value1-value0)*f;
+}
+
+static inline fixed32_t CosineFx(fixed32_t t)
+{
+	fixed32_t offset = (t) * (itofx32(__table_size) / PI2FX);
+	fixed32_t f = offset & 0xFFFF;
+	uint32_t u = floorfx32(offset) >> 16;
+	uint32_t idx0 = u & (__table_size-1);
+	uint32_t idx1 = (u+1) & (__table_size-1);
+
+	fixed32_t value0 = __table_cosine_fixed[idx0];
+	fixed32_t value1 = __table_cosine_fixed[idx1];
+
+	return value0 + ((value1-value0)*f >> 16);
+}
+
+inline float TangentFloat(float t)
+{
+	// not sure if (__table_size-1) is important
+	t = (t + PI/2) * ((float)(__table_size-1) / PI);
+	assert(t >= 0.0f && t < __table_size);
+	float f = fract(t);
+	int32_t i = floor(t);
+	uint32_t u = i;
+	uint32_t idx0 = u & (__table_size-1);
+	uint32_t idx1 = (u+1) & (__table_size-1);
+
+	float value0 = __table_tangent_float[idx0];
+	float value1 = __table_tangent_float[idx1];
+
+	return value0 + (value1-value0)*f;
+}
+
+
 // MATRIX
 typedef union {
 	struct {
@@ -233,7 +351,7 @@ typedef union {
 } mat4_t;
 
 // mat4_t perspective_matrix(float fov, float aspect, float near, float far) {
-// 	float f = 1.0f / tanf((fov/180.0f*PI) / 2.0f);
+// 	float f = 1.0f / TangentFloat((fov/180.0f*PI) / 2.0f);
 // 	mat4_t mat = {
 // 		f / aspect, 0, 0, 0,
 // 		0, f, 0, 0,
@@ -243,72 +361,67 @@ typedef union {
 // 	return mat;
 // }
 
-
-// TRIG
-// inline uint32_t GetTableIndex()
-// {
-
+// vec4_t vec4_mul_mat4(vec4_t in, mat4_t mat) {
+// 	vec4_t result = {0};
+// 	for (int i = 0; i < 4; ++i) {
+// 		for (int j = 0; j < 4; ++j) {
+// 			result.f[i] += in.f[j] * mat.f[i*4 + j];
+// 		}
+// 	}
+// 	return result;
 // }
-inline float SineFloat(float t)
+
+mat4_t PerspectiveMatrix(float fov, float aspect, float near, float far)
 {
-	t *= __table_size / PI2;
-	float f = fract(t);
-	int32_t i = floor(t);
-	uint32_t u = i;
-	uint32_t idx0 = u & (__table_size-1);
-	uint32_t idx1 = (u+1) & (__table_size-1);
+	float a = aspect;
+	float s = 1.0f / TangentFloat((fov/180.0f*PI) / 2.0f);
+	float n = near;
+	float f = far;
 
-	float value0 = __table_sine_float[idx0];
-	float value1 = __table_sine_float[idx1];
-
-	return value0 + (value1-value0)*f;
+	// (2*f*n)/(n-f) scales Z
+	// -1 sets W to -Z
+	mat4_t mat = {
+		s/a, 0,  0,             0,
+		0,   s,  0,             0,
+		0,   0, (f+n)/(n-f),   -1,
+		0,   0, (2*f*n)/(n-f),  0,
+	};
+	return mat;
 }
 
-inline fixed32_t SineFx(fixed32_t t)
+vec4_t Vec4MulMat4(vec4_t in, mat4_t mat)
 {
-	fixed32_t offset = (t) * (itofx32(__table_size) / PI2FX);
-	// NOTE: This is not the correct way to get the fractional part
-	// but for this case it is what we want
-	fixed32_t f = offset & 0xFFFF;
-	uint32_t u = floorfx32(offset) >> 16;
-	uint32_t idx0 = u & (__table_size-1);
-	uint32_t idx1 = (u+1) & (__table_size-1);
-
-	fixed32_t value0 = __table_sine_fixed[idx0];
-	fixed32_t value1 = __table_sine_fixed[idx1];
-
-	return value0 + ((value1-value0)*f >> 16);
+	vec4_t result = {0};
+	for (int v = 0; v < 4; ++v) {
+		for (int i = 0; i < 4; ++i) {
+			result.f[v] += in.f[i] * mat.f[i*4+v];
+		}
+	}
+	return result;
 }
 
-inline float CosineFloat(float t)
+vec4_t Mat4MulVec4(mat4_t mat, vec4_t in)
 {
-	t *= __table_size / PI2;
-	float f = fract(t);
-	int32_t i = floor(t);
-	uint32_t u = i;
-	uint32_t idx0 = u & (__table_size-1);
-	uint32_t idx1 = (u+1) & (__table_size-1);
-
-	assert(idx0 < arraysize(__table_cosine_float));
-	assert(idx1 < arraysize(__table_cosine_float));
-	float value0 = __table_cosine_float[idx0];
-	float value1 = __table_cosine_float[idx1];
-
-	return value0 + (value1-value0)*f;
+	vec4_t result = {0};
+	for (int v = 0; v < 4; ++v) {
+		for (int i = 0; i < 4; ++i) {
+			result.f[v] += mat.f[v*4+i] * in.f[i];
+		}
+	}
+	return result;
 }
 
-inline fixed32_t CosineFx(fixed32_t t)
+mat4_t Mat4RotationZ(float rads)
 {
-	fixed32_t offset = (t) * (itofx32(__table_size) / PI2FX);
-	fixed32_t f = offset & 0xFFFF;
-	uint32_t u = floorfx32(offset) >> 16;
-	uint32_t idx0 = u & (__table_size-1);
-	uint32_t idx1 = (u+1) & (__table_size-1);
-
-	fixed32_t value0 = __table_cosine_fixed[idx0];
-	fixed32_t value1 = __table_cosine_fixed[idx1];
-
-	return value0 + ((value1-value0)*f >> 16);
+	float s = SineFloat(rads);
+	float c = CosineFloat(rads);
+	mat4_t result = {
+		c, s, 0, 0,
+		-s, c,  0, 0,
+		0,          0,           1, 0,
+		0,          0,           0, 1,
+	};
+	return result;
 }
 
 

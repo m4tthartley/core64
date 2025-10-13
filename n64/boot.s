@@ -50,6 +50,13 @@ ZeroLoopDone:
 	li $2, SR_CU1 | SR_PE | SR_FR | SR_KX | SR_SX | SR_UX | SR_IE | C0_INTERRUPT_RCP
 	mtc0 $2, C0_SR
 
+	# Disable floating point traps
+	cfc1 $t0, $31
+	li $t1, 0xF80
+	nor $t1, $t1, $zero
+	and $t0, $t0, $t1
+	ctc1 $t0, $31
+
 	# Get bootcode flags
 	lui $v0, 0xA400
 
@@ -90,9 +97,15 @@ _deliberate_error:
 	nop
 
 
-_GetClock:
 	.globl _GetClock
+_GetClock:
 	mfc0 $v0, C0_COUNT
+	jr $ra
+	nop
+
+	.globl _GetFCSR
+_GetFCSR:
+	cfc1 $v0, $31
 	jr $ra
 	nop
 

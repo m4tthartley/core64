@@ -10,8 +10,8 @@ rm -f ./build/*
 clang texturepacker.c $(coreconfig) -o ./build/texturepacker
 ./build/texturepacker
 
-clang lookuptables.c $(coreconfig) -o ./build/lookuptables
-./build/lookuptables
+# clang lookuptables.c $(coreconfig) -o ./build/lookuptables
+# ./build/lookuptables
 
 fontpacker ./_resources/n64font.bmp -o ./_resources/n64font.h -name N64FontSmall
 fontpacker ./_resources/n64fontwide.bmp -o ./_resources/n64fontwide.h -name N64Font
@@ -56,9 +56,9 @@ echo "\ndone."
 
 # $link 
 
-/opt/libdragon/bin/mips64-elf-objdump -d -h -f ./build/main.elf > ./build/rom_elf_dump.txt
+# /opt/libdragon/bin/mips64-elf-objdump -d -h -f ./build/main.elf > ./build/rom_elf_dump.txt
 # /opt/libdragon/bin/mips64-elf-readelf ./build/main.elf -l
-/opt/libdragon/bin/mips64-elf-objdump -h ./build/main.elf
+# /opt/libdragon/bin/mips64-elf-objdump -h ./build/main.elf
 
 # echo "\n---";
 # /opt/libdragon/bin/mips64-elf-objdump -f ../libdragon/examples/test/build/test.elf

@@ -4,13 +4,14 @@
 */
 
 #include <stdbool.h>
+#include "draw.h"
 #include "rdp.h"
 #include "util.h"
 #include "system.h"
 #include "registers.h"
 
 
-uint8_t __attribute__((aligned(8))) _commandList[1024];
+uint8_t __attribute__((aligned(8))) _commandList[1024*4];
 uintptr_t _commandListBuffer;
 uint32_t  _commandListSize; // in bytes
 uint32_t  _commandListCursor; // in bytes
@@ -28,7 +29,7 @@ void RDP_StartCmdList(void* buffer, uint32_t size)
 {
 	if (!buffer) {
 		buffer = _commandList;
-		size = 1024;
+		size = sizeof(_commandList);
 	}
 
 	_commandListBuffer = (uintptr_t)buffer;
@@ -79,16 +80,38 @@ void RDP_Write(rdpcmdlist_t* cmdlist, uint32_t word)
 #define RDPCMD_SET_ENVIRONMENT_COLOR 0x3B000000
 
 #define RDPCMD_SET_TEXTURE_IMAGE 0x3D000000
+#define RDPCMD_SET_DEPTH_IMAGE 0x3E000000
 #define RDPCMD_SET_COLOR_IMAGE 0x3F000000
 
 #define RDP_MODE_1CYCLE ((uint64_t)0<<52)
 #define RDP_MODE_2CYCLE ((uint64_t)1<<52)
 #define RDP_MODE_COPY ((uint64_t)2<<52)
 #define RDP_MODE_FILL ((uint64_t)3<<52)
+
+#define RDP_MODE_ATOMIC_PRIM ((uint64_t)1<<55)
+#define RDP_MODE_TEX_PERSP ((uint64_t)1<<51)
+#define RDP_MODE_TEX_DETAIL ((uint64_t)1<<50)
+#define RDP_MODE_TEX_SHARPEN ((uint64_t)1<<49)
+#define RDP_MODE_TEX_LOD ((uint64_t)1<<48)
+#define RDP_MODE_TEX_LUT ((uint64_t)1<<47)
+#define RDP_MODE_TEX_LUT_TYPE ((uint64_t)1<<46)
+#define RDP_MODE_TEX_SAMPLE_TYPE ((uint64_t)1<<45)
+#define RDP_MODE_TEX_BI_SAMPLE_MODE ((uint64_t)1<<44)
 #define RDP_MODE_BI_LERP ((uint64_t)1<<43)
 #define RDP_MODE_TEX_RGB ((uint64_t)1<<43)
 #define RDP_MODE_BI_LERP_CYCLE2 ((uint64_t)1<<42)
 #define RDP_MODE_TEX_RGB_CYCLE2 ((uint64_t)1<<42)
+#define RDP_MODE_TEX_CONVERT_ONE ((uint64_t)1<<41)
+#define RDP_MODE_CHROMA_KEY ((uint64_t)1<<40)
+
+#define RDP_MODE_RGB_DITHER_SQUARE ((uint64_t)0<<38)
+#define RDP_MODE_RGB_DITHER_BAYER ((uint64_t)1<<38)
+#define RDP_MODE_RGB_DITHER_NOISE ((uint64_t)2<<38)
+#define RDP_MODE_RGB_DITHER_DISABLE ((uint64_t)3<<38)
+#define RDP_MODE_ALPHA_DITHER_SAME ((uint64_t)0<<36)
+#define RDP_MODE_ALPHA_DITHER_INVERSE ((uint64_t)1<<36)
+#define RDP_MODE_ALPHA_DITHER_NOISE ((uint64_t)2<<36)
+#define RDP_MODE_ALPHA_DITHER_DISABLE ((uint64_t)3<<36)
 
 #define RDP_TEXTURE_IMAGE_FORMAT_RGBA ((uint32_t)0<<21)
 #define RDP_TEXTURE_IMAGE_FORMAT_YUV ((uint32_t)1<<21)
@@ -109,6 +132,11 @@ void RDP_Write(rdpcmdlist_t* cmdlist, uint32_t word)
 #define RDP_TEXTURE_IMAGE_FORMAT_INTENSITY_ALPHA16 (RDP_TEXTURE_IMAGE_FORMAT_INTENSITY_ALPHA | RDP_TEXTURE_IMAGE_PIXEL_SIZE_16)
 #define RDP_TEXTURE_IMAGE_FORMAT_INTENSITY4 (RDP_TEXTURE_IMAGE_FORMAT_INTENSITY | RDP_TEXTURE_IMAGE_PIXEL_SIZE_4)
 #define RDP_TEXTURE_IMAGE_FORMAT_INTENSITY8 (RDP_TEXTURE_IMAGE_FORMAT_INTENSITY | RDP_TEXTURE_IMAGE_PIXEL_SIZE_8)
+
+#define RDP_TRI_ENABLE_SHADE (1<<26)
+#define RDP_TRI_ENABLE_TEXTURE (1<<25)
+#define RDP_TRI_ENABLE_ZBUFFER (1<<24)
+#define RDP_TRI_ENABLE_LMAJOR (1<<23)
 
 enum {
 	TEXTURE_FORMAT_RGBA32 = 0,
@@ -293,12 +321,18 @@ void RDP_SetTextureImage(uint32_t textureFormatMask, uint32_t width, void* addre
 	RDP_WriteWord((((uintptr_t)address&0x1FFFFFFF)|0xA0000000));
 }
 
-void RDP_SetColorImage(uint32_t textureFormatMask, uint16_t width)
+void RDP_SetDepthImage(void* address)
+{
+	RDP_WriteWord(RDPCMD_SET_DEPTH_IMAGE);
+	RDP_WriteWord((uintptr_t)address);
+}
+
+void RDP_SetColorImage(uint32_t textureFormatMask, uint16_t width, void* address)
 {
 	// cmd.word0 = RDPCMD_SET_COLOR_IMAGE | textureFormatMask | (width-1);
 	// cmd.word1 = VI_FRAMEBUFFERBASE & 0xFFFFFF;
 	RDP_WriteWord(RDPCMD_SET_COLOR_IMAGE | textureFormatMask | (width-1));
-	RDP_WriteWord(UncachedAddress(VI_FRAMEBUFFERBASE));
+	RDP_WriteWord((uintptr_t)address);
 }
 
 void RDP_FillTriangle(vecscreen_t* verts)
@@ -340,6 +374,10 @@ void RDP_FillTriangle(vecscreen_t* verts)
 	RDP_WriteWord(dxmdy);
 }
 
+bool __rdpEnableTriangleShade = 1;
+bool __rdpEnableTriangleTexture = 1;
+bool __rdpEnableTriangleZBuffer = 1;
+
 void RDP_Triangle(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 {
 	// rdp_vertex_t v0 = verts[0];
@@ -366,7 +404,18 @@ void RDP_Triangle(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 
 	bool leftMajor = (hxdiff * mydiff - mxdiff * hydiff) <= 0;
 
-	RDP_WriteWord((0b001<<27) | (1<<26/*shade*/) | (1<<25/*texture*/) | (leftMajor<<23/*lmajor*/) | ((v2y<<2)&0x3FFF));
+	uint32_t options = 0;
+	if (__rdpEnableTriangleShade) {
+		options |= RDP_TRI_ENABLE_SHADE;
+	}
+	if (__rdpEnableTriangleTexture) {
+		options |= RDP_TRI_ENABLE_TEXTURE;
+	}
+	if (__rdpEnableTriangleZBuffer) {
+		options |= RDP_TRI_ENABLE_ZBUFFER;
+	}
+
+	RDP_WriteWord((0b001<<27) | options | (leftMajor<<23/*lmajor*/) | ((v2y<<2)&0x3FFF));
 	RDP_WriteWord((((v1y<<2)&0x3FFF)<<16) | ((v0y<<2)&0x3FFF));
 
 	// low=high on the screen, high=low on the screen
@@ -384,221 +433,240 @@ void RDP_Triangle(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 
 	// SHADE
 
-#if 0
-	// int part of shade color at xh, floor(yh)
-	RDP_WriteWord((64<<16) | 64);
-	RDP_WriteWord((64<<16) | 64);
-	// int part change in shade along scanline
-	RDP_WriteWord((4<<16));
-	RDP_WriteWord(0);
-	// fractional part of shade color at xh, floor(yh)
-	RDP_WriteWord(0);
-	RDP_WriteWord(0);
-	// fractional part change in shade along scanline
-	RDP_WriteWord(0);
-	RDP_WriteWord(0);
-	// int part change along major edge
-	RDP_WriteWord((((uint32_t)-1)<<16));
-	RDP_WriteWord(0);
-	// int part change each scanline
-	RDP_WriteWord(0);
-	RDP_WriteWord(0);
-	// frac part change along major edge
-	RDP_WriteWord(0);
-	RDP_WriteWord(0);
-	// frac part change each scanline
-	RDP_WriteWord(0);
-	RDP_WriteWord(0);
-#endif
+	if (__rdpEnableTriangleShade) {
+		/*
+			{x = 200, y = 50, C = 240 (just red component to test)}
+			{x = 260, y = 100, C = 120 (just red component to test)}
+			{x = 230, y = 150, C = 60 (just red component to test)}
 
-	/*
-		{x = 200, y = 50, C = 240 (just red component to test)}
-		{x = 260, y = 100, C = 120 (just red component to test)}
-		{x = 230, y = 150, C = 60 (just red component to test)}
+			hx = 230-200 = 30
+			hy = 150-50 = 100
+			mx = 260-200 = 60
+			my = 100-50 = 50
 
-		hx = 230-200 = 30
-		hy = 150-50 = 100
-		mx = 260-200 = 60
-		my = 100-50 = 50
+			mr = -120;
+			hr = -180;
 
-		mr = -120;
-		hr = -180;
+			nxr = hy*mr - my*hr = -12,000 - -9,000 = -3,000
 
-		nxr = hy*mr - my*hr = -12,000 - -9,000 = -3,000
+			const float nz = (data->hx*data->my) - (data->hy*data->mx); = -4,500
+			data->attr_factor = -1.0f / nz; = -0.0002222222222
 
-		const float nz = (data->hx*data->my) - (data->hy*data->mx); = -4,500
-    	data->attr_factor = -1.0f / nz; = -0.0002222222222
+			DrDx = nxr * attr_factor = 0.6666666666
 
-		DrDx = nxr * attr_factor = 0.6666666666
+			{
+				hr/hx = -180 / 30 = -6
+				mr/mx = -120 / 60 = -2
+			}
 
-		{
-			hr/hx = -180 / 30 = -6
-			mr/mx = -120 / 60 = -2
-		}
+			{
+				dx1 = 260-200 = 60
+				dy1 = 100-50 = 50
+				dx2 = 230-200 = 30
+				dy2 = 150-50 = 100
 
-		{
-			dx1 = 260-200 = 60
-			dy1 = 100-50 = 50
-			dx2 = 230-200 = 30
-			dy2 = 150-50 = 100
+				dc1 = -120;
+				dc2 = -180;
 
-			dc1 = -120;
-			dc2 = -180;
+				det = dx1*dy2 - dx2*dy1 = 4500
+				a = (dc1*dy2 - dc2*dy1) / det = -0.6666666667
+				b = (dx1*dc2 - dx2*dc1) / det = -1.6
+				c = c0 - a*x0 - b*y0 = 453.33333334
+				edgeVector = (230-200) / (150-50) = 0.3
 
-			det = dx1*dy2 - dx2*dy1 = 4500
-			a = (dc1*dy2 - dc2*dy1) / det = -0.6666666667
-			b = (dx1*dc2 - dx2*dc1) / det = -1.6
-			c = c0 - a*x0 - b*y0 = 453.33333334
-			edgeVector = (230-200) / (150-50) = 0.3
+				dedge = b + a * edgeVector = -1.8
+			}
+		*/
 
-			dedge = b + a * edgeVector = -1.8
-		}
-	*/
+		// Long edge = v0->v2, longest edge
+		// High edge = v0->v1, high edge of the triangle arm
+		// Low edge = v1->v2, low edge of the triangle arm
 
-	// Long edge = v0->v2, longest edge
-	// High edge = v0->v1, high edge of the triangle arm
-	// Low edge = v1->v2, low edge of the triangle arm
+		// float HighEdgeColorDelta = v1.color.x - v0.color.x;
+		// float longEdgeColorDelta = v2.color.x - v0.color.x;
+		vec4_t highEdgeColorDelta = sub4(v1.color, v0.color);
+		vec4_t longEdgeColorDelta = sub4(v2.color, v0.color);
 
-	// float HighEdgeColorDelta = v1.color.x - v0.color.x;
-	vec4_t highEdgeColorDelta = sub4(v1.color, v0.color);
-	// float longEdgeColorDelta = v2.color.x - v0.color.x;
-	vec4_t longEdgeColorDelta = sub4(v2.color, v0.color);
+		float longDiffX = v2x-v0x;
+		float longDiffY = v2y-v0y;
+		float highDiffX = v1x-v0x;
+		float highDiffY = v1y-v0y;
+		float lowDiffX = v2x-v1x;
+		float lowDiffY = v2y-v1y;
 
-	float longDiffX = v2x-v0x;
-	float longDiffY = v2y-v0y;
-	float highDiffX = v1x-v0x;
-	float highDiffY = v1y-v0y;
-	float lowDiffX = v2x-v1x;
-	float lowDiffY = v2y-v1y;
+		float edgeRatio = divsafe(longDiffX, longDiffY);
+		float determinant = highDiffX*longDiffY - longDiffX*highDiffY;
 
-	float determinant = highDiffX*longDiffY - longDiffX*highDiffY;
+		vec4_t xCoef = div4f(sub4(mul4f(highEdgeColorDelta, longDiffY), mul4f(longEdgeColorDelta, highDiffY)), determinant);
+		vec4_t yCoef = div4f(sub4(mul4f(longEdgeColorDelta, highDiffX), mul4f(highEdgeColorDelta, longDiffX)), determinant);
+		vec4_t edgeCoef = add4(yCoef, mul4f(xCoef, edgeRatio));
 
-	vec4_t xCoef = div4f(sub4(mul4f(highEdgeColorDelta, longDiffY), mul4f(longEdgeColorDelta, highDiffY)), determinant);
-	vec4_t yCoef = div4f(sub4(mul4f(longEdgeColorDelta, highDiffX), mul4f(highEdgeColorDelta, longDiffX)), determinant);
-	vec4_t edgeCoef = add4(yCoef, mul4f(xCoef, (longDiffX/longDiffY)));
+		// xCoef = -2.0f;
+		// yCoef = -2.0f;
+		// edgeCoef = -2.0f;
 
-	// xCoef = -2.0f;
-	// yCoef = -2.0f;
-	// edgeCoef = -2.0f;
+		// xCoef *= 65536.0f;
+		// xCoef = mul4f(xCoef, 65536.0f);
+		// yCoef *= 65536.0f;
+		// yCoef = mul4f(yCoef, 65536.0f);
+		// edgeCoef *= 65536.0f;
+		// edgeCoef = mul4f(edgeCoef, 65536.0f);
 
-	// xCoef *= 65536.0f;
-	// xCoef = mul4f(xCoef, 65536.0f);
-	// yCoef *= 65536.0f;
-	// yCoef = mul4f(yCoef, 65536.0f);
-	// edgeCoef *= 65536.0f;
-	// edgeCoef = mul4f(edgeCoef, 65536.0f);
+		// float f = 65536.0f;
+		// int32_t xCoefFixed = xCoef;
+		// int32_t yCoefFixed = yCoef;
+		// int32_t edgeCoefFixed = edgeCoef;
+		vec4fixed32_t xCoefFixed = vec4tofixed32(xCoef);
+		vec4fixed32_t yCoefFixed = vec4tofixed32(yCoef);
+		vec4fixed32_t edgeCoefFixed = vec4tofixed32(edgeCoef);
 
-	// float f = 65536.0f;
-	// int32_t xCoefFixed = xCoef;
-	vec4fixed32_t xCoefFixed = vec4tofixed32(xCoef);
-	// int32_t yCoefFixed = yCoef;
-	vec4fixed32_t yCoefFixed = vec4tofixed32(yCoef);
-	// int32_t edgeCoefFixed = edgeCoef;
-	vec4fixed32_t edgeCoefFixed = vec4tofixed32(edgeCoef);
+		// vec4fixed32_t startColor = vec4tofixed32(v0.color);
+		uint32_t r = ((uint32_t)v0.color.r) & 0xFF;
+		uint32_t g = ((uint32_t)v0.color.g) & 0xFF;
+		uint32_t b = ((uint32_t)v0.color.b) & 0xFF;
+		uint32_t a = ((uint32_t)v0.color.a) & 0xFF;
 
-	// vec4fixed32_t startColor = vec4tofixed32(v0.color);
-	uint32_t r = ((uint32_t)v0.color.r) & 0xFF;
-	uint32_t g = ((uint32_t)v0.color.g) & 0xFF;
-	uint32_t b = ((uint32_t)v0.color.b) & 0xFF;
-	uint32_t a = ((uint32_t)v0.color.a) & 0xFF;
+		// int part of shade color at xh, floor(yh)
+		RDP_WriteWord((r<<16) | g);
+		RDP_WriteWord((b<<16) | a);
+		// int part change in shade along scanline
+		RDP_WriteWord((xCoefFixed.r&0xFFFF0000) | ((xCoefFixed.g>>16)&0xFFFF));
+		RDP_WriteWord((xCoefFixed.b&0xFFFF0000) | ((xCoefFixed.a>>16)&0xFFFF));
+		// fractional part of shade color at xh, floor(yh)
+		RDP_WriteWord(0);
+		RDP_WriteWord(0);
+		// fractional part change in shade along scanline
+		RDP_WriteWord((xCoefFixed.r<<16) | (xCoefFixed.g&0xFFFF));
+		RDP_WriteWord((xCoefFixed.b<<16) | (xCoefFixed.a&0xFFFF));
+		// int part change along major edge
+		RDP_WriteWord((edgeCoefFixed.r&0xFFFF0000) | ((edgeCoefFixed.g>>16)&0xFFFF));
+		RDP_WriteWord((edgeCoefFixed.b&0xFFFF0000) | ((edgeCoefFixed.a>>16)&0xFFFF));
+		// int part change each scanline
+		RDP_WriteWord((yCoefFixed.r&0xFFFF0000) | ((yCoefFixed.g>>16)&0xFFFF));
+		RDP_WriteWord((yCoefFixed.b&0xFFFF0000) | ((yCoefFixed.a>>16)&0xFFFF));
+		// frac part change along major edge
+		RDP_WriteWord((edgeCoefFixed.r<<16) | (edgeCoefFixed.g&0xFFFF));
+		RDP_WriteWord((edgeCoefFixed.b<<16) | (edgeCoefFixed.a&0xFFFF));
+		// frac part change each scanline
+		RDP_WriteWord((yCoefFixed.r<<16) | (yCoefFixed.g&0xFFFF));
+		RDP_WriteWord((yCoefFixed.b<<16) | (yCoefFixed.a&0xFFFF));
 
-	// int part of shade color at xh, floor(yh)
-	RDP_WriteWord((r<<16) | g);
-	RDP_WriteWord((b<<16) | a);
-	// int part change in shade along scanline
-	RDP_WriteWord((xCoefFixed.r&0xFFFF0000) | ((xCoefFixed.g>>16)&0xFFFF));
-	RDP_WriteWord((xCoefFixed.b&0xFFFF0000) | ((xCoefFixed.a>>16)&0xFFFF));
-	// fractional part of shade color at xh, floor(yh)
-	RDP_WriteWord(0);
-	RDP_WriteWord(0);
-	// fractional part change in shade along scanline
-	RDP_WriteWord((xCoefFixed.r<<16) | (xCoefFixed.g&0xFFFF));
-	RDP_WriteWord((xCoefFixed.b<<16) | (xCoefFixed.a&0xFFFF));
-	// int part change along major edge
-	RDP_WriteWord((edgeCoefFixed.r&0xFFFF0000) | ((edgeCoefFixed.g>>16)&0xFFFF));
-	RDP_WriteWord((edgeCoefFixed.b&0xFFFF0000) | ((edgeCoefFixed.a>>16)&0xFFFF));
-	// int part change each scanline
-	RDP_WriteWord((yCoefFixed.r&0xFFFF0000) | ((yCoefFixed.g>>16)&0xFFFF));
-	RDP_WriteWord((yCoefFixed.b&0xFFFF0000) | ((yCoefFixed.a>>16)&0xFFFF));
-	// frac part change along major edge
-	RDP_WriteWord((edgeCoefFixed.r<<16) | (edgeCoefFixed.g&0xFFFF));
-	RDP_WriteWord((edgeCoefFixed.b<<16) | (edgeCoefFixed.a&0xFFFF));
-	// frac part change each scanline
-	RDP_WriteWord((yCoefFixed.r<<16) | (yCoefFixed.g&0xFFFF));
-	RDP_WriteWord((yCoefFixed.b<<16) | (yCoefFixed.a&0xFFFF));
+		// // int part change along major edge
+		// RDP_WriteWord(0);
+		// RDP_WriteWord(0);
+		// // int part change each scanline
+		// RDP_WriteWord(0);
+		// RDP_WriteWord(0);
+		// // frac part change along major edge
+		// RDP_WriteWord(0);
+		// RDP_WriteWord(0);
+		// // frac part change each scanline
+		// RDP_WriteWord(0);
+		// RDP_WriteWord(0);
+	}
 
-	// // int part change along major edge
-	// RDP_WriteWord(0);
-	// RDP_WriteWord(0);
-	// // int part change each scanline
-	// RDP_WriteWord(0);
-	// RDP_WriteWord(0);
-	// // frac part change along major edge
-	// RDP_WriteWord(0);
-	// RDP_WriteWord(0);
-	// // frac part change each scanline
-	// RDP_WriteWord(0);
-	// RDP_WriteWord(0);
+	// float minw = 1.0f / max(max(v0.pos.z, v1.pos.z), v2.pos.z);
+	// invw0 *= minw;
+	// invw1 *= minw;
+	// invw2 *= minw;
+	// invw0 *= (float)0x7FFF;
+	// invw1 *= (float)0x7FFF;
+	// invw2 *= (float)0x7FFF;
 
 	// TEXTURE COORDINATES
+	if (__rdpEnableTriangleTexture) {
+		float longDiffX = v2x-v0x;
+		float longDiffY = v2y-v0y;
+		float highDiffX = v1x-v0x;
+		float highDiffY = v1y-v0y;
+		float lowDiffX = v2x-v1x;
+		float lowDiffY = v2y-v1y;
 
-	v0.texcoord.u *= 32;
-	v0.texcoord.v *= 32;
-	v1.texcoord.u *= 32;
-	v1.texcoord.v *= 32;
-	v2.texcoord.u *= 32;
-	v2.texcoord.v *= 32;
+		vec3_t texData0 = vec3(v0.texcoord.u, v0.texcoord.v, v0.invw);
+		vec3_t texData1 = vec3(v1.texcoord.u, v1.texcoord.v, v1.invw);
+		vec3_t texData2 = vec3(v2.texcoord.u, v2.texcoord.v, v2.invw);
+		vec3_t highEdgeTexDelta = sub3(texData1, texData0);
+		vec3_t longEdgeTexDelta = sub3(texData2, texData0);
 
-	// hardcoding W as 1 for now
-	float invw0 = 1.0f / 1.0f;//* 0x7FFF;
-	float invw1 = 1.0f / 1.0f;//* 0x7FFF;
-	float invw2 = 1.0f / 1.0f;//* 0x7FFF;
+		float edgeRatio = divsafe(longDiffX, longDiffY);
+		float determinant = highDiffX*longDiffY - longDiffX*highDiffY;
 
-	vec3_t texData0 = vec3(v0.texcoord.u, v0.texcoord.v, invw0);
-	vec3_t texData1 = vec3(v1.texcoord.u, v1.texcoord.v, invw1);
-	vec3_t texData2 = vec3(v2.texcoord.u, v2.texcoord.v, invw2);
-	vec3_t highEdgeTexDelta = sub3(texData1, texData0);
-	vec3_t longEdgeTexDelta = sub3(texData2, texData0);
+		vec3_t xTexCoef = div3fsafe(sub3(mul3f(highEdgeTexDelta, longDiffY), mul3f(longEdgeTexDelta, highDiffY)), determinant);
+		vec3_t yTexCoef = div3fsafe(sub3(mul3f(longEdgeTexDelta, highDiffX), mul3f(highEdgeTexDelta, longDiffX)), determinant);
+		vec3_t edgeTexCoef = add3(yTexCoef, mul3f(xTexCoef, edgeRatio));
+		
+		vec3fx32_t xTexCoefFixed = vec3tofixed32(xTexCoef);
+		vec3fx32_t yTexCoefFixed = vec3tofixed32(yTexCoef);
+		vec3fx32_t edgeTexCoefFixed = vec3tofixed32(edgeTexCoef);
 
-	vec3_t xTexCoef = div3f(sub3(mul3f(highEdgeTexDelta, longDiffY), mul3f(longEdgeTexDelta, highDiffY)), determinant);
-	vec3_t yTexCoef = div3f(sub3(mul3f(longEdgeTexDelta, highDiffX), mul3f(highEdgeTexDelta, longDiffX)), determinant);
-	vec3_t edgeTexCoef = add3(yTexCoef, mul3f(xTexCoef, (longDiffX/longDiffY)));
-	// xTexCoef = vec3(32, 32, 0);
-	// yTexCoef = vec3(0, 0, 0);
-	// edgeTexCoef = vec3(0, 0, 0);
+		uint32_t finalu = tofixed32(texData0.u);
+		uint32_t finalv = tofixed32(texData0.v);
+		uint32_t finalw = tofixed32(v0.invw);
 
-	vec3fx32_t xTexCoefFixed = vec3tofixed32(xTexCoef);
-	vec3fx32_t yTexCoefFixed = vec3tofixed32(yTexCoef);
-	vec3fx32_t edgeTexCoefFixed = vec3tofixed32(edgeTexCoef);
+		// int part at xh, floor(yh)
+		RDP_WriteWord((finalu&0xFFFF0000) | ((finalv>>16)&0xFFFF));
+		RDP_WriteWord((finalw&0xFFFF0000));
+		// int part change along scanline
+		RDP_WriteWord((xTexCoefFixed.u&0xFFFF0000) | ((xTexCoefFixed.v>>16)&0xFFFF));
+		RDP_WriteWord((xTexCoefFixed.w&0xFFFF0000));
+		// fractional part at xh, floor(yh)
+		RDP_WriteWord(((finalu&0xFFFF)<<16) | (finalv&0xFFFF));
+		RDP_WriteWord(((finalw&0xFFFF)<<16));
+		// fractional part along scanline
+		RDP_WriteWord((xTexCoefFixed.u<<16) | (xTexCoefFixed.v&0xFFFF));
+		RDP_WriteWord((xTexCoefFixed.w<<16));
+		// int part change along major edge
+		RDP_WriteWord((edgeTexCoefFixed.u&0xFFFF0000) | ((edgeTexCoefFixed.v>>16)&0xFFFF));
+		RDP_WriteWord((edgeTexCoefFixed.w&0xFFFF0000));
+		// int part change each scanline
+		RDP_WriteWord((yTexCoefFixed.u&0xFFFF0000) | ((yTexCoefFixed.v>>16)&0xFFFF));
+		RDP_WriteWord((yTexCoefFixed.w&0xFFFF0000));
+		// frac part change along major edge
+		RDP_WriteWord((edgeTexCoefFixed.u<<16) | (edgeTexCoefFixed.v&0xFFFF));
+		RDP_WriteWord((edgeTexCoefFixed.w<<16));
+		// frac part change each scanline
+		RDP_WriteWord((yTexCoefFixed.u<<16) | (yTexCoefFixed.v&0xFFFF));
+		RDP_WriteWord((yTexCoefFixed.w<<16));
+	}
 
-	uint32_t u = tofixed32(v0.texcoord.u); //((uint32_t)v0.texcoord.u) & 0xFF;
-	uint32_t v = tofixed32(v0.texcoord.v); //((uint32_t)v0.texcoord.v) & 0xFF;
-	uint32_t w = tofixed32(invw0); //((uint32_t)invw0) & 0xFF;
+	if (__rdpEnableTriangleZBuffer) {
+		float longDiffX = v2x-v0x;
+		float longDiffY = v2y-v0y;
+		float highDiffX = v1x-v0x;
+		float highDiffY = v1y-v0y;
+		float lowDiffX = v2x-v1x;
+		float lowDiffY = v2y-v1y;
 
-	// int part at xh, floor(yh)
-	RDP_WriteWord((u&0xFFFF0000) | ((v>>16)&0xFFFF));
-	RDP_WriteWord((w&0xFFFF0000));
-	// int part change along scanline
-	RDP_WriteWord((xTexCoefFixed.u&0xFFFF0000) | ((xTexCoefFixed.v>>16)&0xFFFF));
-	RDP_WriteWord((xTexCoefFixed.w&0xFFFF0000));
-	// fractional part at xh, floor(yh)
-	RDP_WriteWord(((u&0xFFFF)<<16) | (v&0xFFFF));
-	RDP_WriteWord(((w&0xFFFF)<<16));
-	// fractional part along scanline
-	RDP_WriteWord((xTexCoefFixed.u<<16) | (xTexCoefFixed.v&0xFFFF));
-	RDP_WriteWord((xTexCoefFixed.w<<16));
-	// int part change along major edge
-	RDP_WriteWord((edgeTexCoefFixed.u&0xFFFF0000) | ((edgeTexCoefFixed.v>>16)&0xFFFF));
-	RDP_WriteWord((edgeTexCoefFixed.w&0xFFFF0000));
-	// int part change each scanline
-	RDP_WriteWord((yTexCoefFixed.u&0xFFFF0000) | ((yTexCoefFixed.v>>16)&0xFFFF));
-	RDP_WriteWord((yTexCoefFixed.w&0xFFFF0000));
-	// frac part change along major edge
-	RDP_WriteWord((edgeTexCoefFixed.u<<16) | (edgeTexCoefFixed.v&0xFFFF));
-	RDP_WriteWord((edgeTexCoefFixed.w<<16));
-	// frac part change each scanline
-	RDP_WriteWord((yTexCoefFixed.u<<16) | (yTexCoefFixed.v&0xFFFF));
-	RDP_WriteWord((yTexCoefFixed.w<<16));
+		float z0 = v0.pos.z * (float)0x7FFF;// / v0.pos.w;
+		float z1 = v1.pos.z * (float)0x7FFF;// / v1.pos.w;
+		float z2 = v2.pos.z * (float)0x7FFF;// / v2.pos.w;
+		float highEdgeDelta = z1 - z0;
+		float longEdgeDelta = z2 - z0;
+
+		float edgeRatio = divsafe(longDiffX, longDiffY);
+		float determinant = highDiffX*longDiffY - longDiffX*highDiffY;
+
+		float xCoef = divsafe(highEdgeDelta*longDiffY - longEdgeDelta*highDiffY, determinant);
+		float yCoef = divsafe(longEdgeDelta*highDiffX - highEdgeDelta*longDiffX, determinant);
+		float edgeCoef = yCoef + xCoef*edgeRatio;
+		
+		fixed32_t xCoefFixed = tofixed32(xCoef);
+		fixed32_t yCoefFixed = tofixed32(yCoef);
+		fixed32_t edgeCoefFixed = tofixed32(edgeCoef);
+
+		// uint32_t finalu = tofixed32(texData0.u);
+		// uint32_t finalv = tofixed32(texData0.v);
+		// uint32_t finalw = tofixed32(v0.invw);
+		fixed32_t finalz = tofixed32(z0);
+
+		RDP_WriteWord(finalz);
+		// RDP_WriteWord((xCoefFixed&0xFFFF0000) | ((xCoefFixed>>16)&0xFFFF));
+		// RDP_WriteWord((xCoefFixed&0xFFFF0000) | ((xCoefFixed>>16)&0xFFFF));
+		// RDP_WriteWord((xCoefFixed&0xFFFF0000) | ((xCoefFixed>>16)&0xFFFF));
+		RDP_WriteWord(xCoefFixed);
+		RDP_WriteWord(edgeCoefFixed);
+		RDP_WriteWord(yCoefFixed);
+	}
 }
 
 void RDP_FillTriangleWithShade(rdp_vertex_t* verts)
