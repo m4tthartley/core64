@@ -9,7 +9,7 @@
 
 int main()
 {
-	char* bmpFilename = "./resources/test3.bmp";
+	char* bmpFilename = "./resources/tiles2.bmp";
 	print("Packing texture (%s) \n", bmpFilename);
 
 	file_t file = sys_open(bmpFilename);

@@ -12,6 +12,9 @@
 #include "../resources/tables.h"
 
 
+float _Sqrt(float x);
+
+
 #define PI 3.14159265359f
 #define PI2 (PI*2.0f)
 
@@ -159,6 +162,24 @@ inline vec3_t div3safe(vec3_t a, vec3_t b)
 inline vec3_t div3fsafe(vec3_t a, float b)
 {
 	return div3safe(a, vec3f(b));
+}
+
+float len3(vec3_t a) {
+	return (float)_Sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
+}
+vec3_t normalize3(vec3_t v) {
+	float len = len3(v);
+	return vec3(v.x/len, v.y/len, v.z/len);
+}
+float dot3(vec3_t a, vec3_t b) {
+	return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+vec3_t cross3(vec3_t a, vec3_t b) {
+	vec3_t result;
+	result.x = a.y*b.z - a.z*b.y;
+	result.y = a.z*b.x - a.x*b.z;
+	result.z = a.x*b.y - a.y*b.x;
+	return normalize3(result);
 }
 
 inline vec3fx32_t vec3tofixed32(vec3_t v)

@@ -21,7 +21,6 @@ int main()
 	InitDefaultVI();
 
 	static fixed32_t time = 0;
-	static fixed32_t time2 = 0x10000;
 
 	void* framebuffer = UncachedAddress(AllocMemory(320*288*2, 64));
 	void* depthbuffer = UncachedAddress(AllocMemory(320*288*2, 64));
@@ -33,7 +32,6 @@ int main()
 		// PollTime();
 		// time += GetDeltaTime()
 		time += tofixed32(2.0f / 50.0f);
-		time2 += tofixed32(2.0f / 50.0f);
 
 		RDP_StartCmdList(0, 0);
 
@@ -52,14 +50,14 @@ int main()
 		RDP_SetPrimitiveColor(Color32(0, 255, 255, 255));
 		RDP_SetEnvironmentColor(0x00FFFFFF);
 		
-		uint32_t tileWidth = 32;
-		uint32_t tileHeight = 32;
+		uint32_t tileWidth = 64;
+		uint32_t tileHeight = 64;
 		extern uint8_t texture_test_start[];
 		RDP_SetTextureImage(RDP_TEXTURE_IMAGE_FORMAT_RGBA16, tileWidth, texture_test_start);
 		RDP_SetTile(0, RDP_TEXTURE_IMAGE_FORMAT_RGBA16, tileWidth, 0);
-		RDP_LoadTile(0, 0, 0, tileWidth, tileHeight);
+		RDP_LoadTile(0, 0, 0, 16, 16);
 		RDP_LoadSync();
-		RDP_SetTileSize(0, 32, 32);
+		RDP_SetTileSize(0, 16, 16);
 
 		RDP_SetCombineMode(RDP_CombinerRGB(RDP_COMB_TEX0, 0, RDP_COMB_SHADE, 0));
 		// rdp_vertex_t verts[] = {
@@ -75,35 +73,35 @@ int main()
 		// 	{{-30, 0}, {255, 255, 255, 255}, {0.0f, 32.0f}},
 		// };
 		rdp_vertex_t verts[] = {
-			{ .pos={-0.5f, -0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f, -0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
-			{ .pos={+0.5f, +0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
-			{ .pos={-0.5f, +0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+			{ .pos={-0.5f, -0.5f, +0.5f},	.normal={0, 0, 1},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f, -0.5f, +0.5f},	.normal={0, 0, 1},	.color={255, 255, 255, 255},			.texcoord={16.0f, 0.0f}},
+			{ .pos={+0.5f, +0.5f, +0.5f},	.normal={0, 0, 1},	.color={255, 255, 255, 255},			.texcoord={16.0f, 16.0f}},
+			{ .pos={-0.5f, +0.5f, +0.5f},	.normal={0, 0, 1},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={+0.5f, -0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={-0.5f, -0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
-			{ .pos={-0.5f, +0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
-			{ .pos={+0.5f, +0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+			{ .pos={+0.5f, -0.5f, -0.5f},	.normal={0, 0, -1},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={-0.5f, -0.5f, -0.5f},	.normal={0, 0, -1},	.color={255, 255, 255, 255},			.texcoord={16.0f, 0.0f}},
+			{ .pos={-0.5f, +0.5f, -0.5f},	.normal={0, 0, -1},	.color={255, 255, 255, 255},			.texcoord={16.0f, 16.0f}},
+			{ .pos={+0.5f, +0.5f, -0.5f},	.normal={0, 0, -1},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={-0.5f, -0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={-0.5f, -0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
-			{ .pos={-0.5f, +0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
-			{ .pos={-0.5f, +0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+			{ .pos={-0.5f, -0.5f, -0.5f},	.normal={-1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={-0.5f, -0.5f, +0.5f},	.normal={-1, 0, 0},	.color={255, 255, 255, 255},			.texcoord={16.0f, 0.0f}},
+			{ .pos={-0.5f, +0.5f, +0.5f},	.normal={-1, 0, 0},	.color={255, 255, 255, 255},			.texcoord={16.0f, 16.0f}},
+			{ .pos={-0.5f, +0.5f, -0.5f},	.normal={-1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={+0.5f, -0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f, -0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
-			{ .pos={+0.5f, +0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
-			{ .pos={+0.5f, +0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+			{ .pos={+0.5f, -0.5f, +0.5f},	.normal={1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f, -0.5f, -0.5f},	.normal={1, 0, 0},	.color={255, 255, 255, 255},			.texcoord={16.0f, 0.0f}},
+			{ .pos={+0.5f, +0.5f, -0.5f},	.normal={1, 0, 0},	.color={255, 255, 255, 255},			.texcoord={16.0f, 16.0f}},
+			{ .pos={+0.5f, +0.5f, +0.5f},	.normal={1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={-0.5f, +0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f, +0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
-			{ .pos={+0.5f, +0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
-			{ .pos={-0.5f, +0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+			{ .pos={-0.5f, +0.5f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f, +0.5f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},			.texcoord={16.0f, 0.0f}},
+			{ .pos={+0.5f, +0.5f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},			.texcoord={16.0f, 16.0f}},
+			{ .pos={-0.5f, +0.5f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={-0.5f, -0.5f, +0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f, -0.5f, +0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 0.0f}},
-			{ .pos={+0.5f, -0.5f, -0.5f},	.color={0, 0, 0, 255},			.texcoord={32.0f, 32.0f}},
-			{ .pos={-0.5f, -0.5f, -0.5f},	.color={255, 255, 255, 255},	.texcoord={0.0f, 32.0f}},
+			{ .pos={-0.5f, -0.5f, +0.5f},	.normal={0, -1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f, -0.5f, +0.5f},	.normal={0, -1, 0},	.color={255, 255, 255, 255},			.texcoord={16.0f, 0.0f}},
+			{ .pos={+0.5f, -0.5f, -0.5f},	.normal={0, -1, 0},	.color={255, 255, 255, 255},			.texcoord={16.0f, 16.0f}},
+			{ .pos={-0.5f, -0.5f, -0.5f},	.normal={0, -1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 		};
 		// RDP_FillTriangleWithShade(verts2);
 
@@ -112,6 +110,7 @@ int main()
 		for (int i=0; i<arraysize(verts); ++i) {
 			// nice
 			verts[i].pos.xyz = vec3(verts[i].pos.x*cos + verts[i].pos.z*sin, verts[i].pos.y + fx32tof(SineFx(time/2))*2, verts[i].pos.z*cos - verts[i].pos.x*sin);
+			verts[i].normal = vec3(verts[i].normal.x*cos + verts[i].normal.z*sin, verts[i].normal.y, verts[i].normal.z*cos - verts[i].normal.x*sin);
 		}
 
 		GFX_SetPosition(200, 100);

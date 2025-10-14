@@ -109,6 +109,12 @@ _GetFCSR:
 	jr $ra
 	nop
 
+	.globl _Sqrt
+_Sqrt:
+	sqrt.s $f0, $f12
+	jr $ra
+	nop
+
 
 	.section .stack
 	.space 0x10000

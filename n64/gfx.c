@@ -68,6 +68,18 @@ void GFX_DrawTriangle(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 	v0.invw *= (float)0x7FFF;
 	v1.invw *= (float)0x7FFF;
 	v2.invw *= (float)0x7FFF;
+
+	// vec3_t highEdge = sub3(v1.pos.xyz, v0.pos.xyz);
+	// vec3_t longEdge = sub3(v2.pos.xyz, v0.pos.xyz);
+	// vec3_t normal = normalize3(cross3(highEdge, longEdge));
+	vec3_t sunDir = normalize3(vec3(1, 1, 1));
+	float ambient = 0.1f;
+	float light = ambient + (max(dot3(v0.normal, sunDir), 0.0f) * (1.0f-ambient));
+
+	v0.color.xyz = vec3f(light * 255.0f);
+	v1.color.xyz = vec3f(light * 255.0f);
+	v2.color.xyz = vec3f(light * 255.0f);
+
 	RDP_Triangle(v0, v1, v2);
 
 	// DrawStrBG(8, 8, "clip z: %f, clip w: %f", v0.pos.z, ndc0.w);

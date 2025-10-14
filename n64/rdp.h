@@ -63,6 +63,7 @@ typedef struct {
 typedef struct {
 	vec4_t pos;
 	float invw;
+	vec3_t normal;
 	vec4_t color;
 	vec2_t texcoord;
 } rdp_vertex_t;
