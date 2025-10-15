@@ -23,7 +23,9 @@ void DrawFontStringWithBG(uint32_t* font, char* str, int x, int y);
 #define swap(a, b) { typeof(a) __tmp=a; a=b; b=__tmp; }
 // #define swap(a, b) a=b-a; b=b-a; a=b+a;
 
-#define max(a, b) (a>b ? a : b)
+#define max(a, b) ((a)>(b) ? (a) : (b))
+#define min(a, b) ((a)<(b) ? (a) : (b))
+#define abs(x) ((x)>0 ? (x) : ((x)*-1))
 
 #define arraysize(a) (sizeof(a)/sizeof(a[0]))
 

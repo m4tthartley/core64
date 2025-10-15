@@ -88,6 +88,8 @@ typedef uint16_t color16_t;
 
 // #define Color32(red, green, blue, alpha) ((color32_t){ .r=red, .g=green, .b=blue, .a=alpha })
 #define Color32(r, g, b, a) ((r&0xFF)<<24 | (g&0xFF)<<16 | (b&0xFF)<<8 | (a&0xFF)<<0)
+// #define Color16(r, g, b, a) (((r>>3)&31)<<11 | ((g>>3)&31)<<6 | ((b>>3)&31)<<1 | (a&1))
+#define Color16(r, g, b, a) ((r&31)<<11 | (g&31)<<6 | (b&31)<<1 | (a&1))
 
 rdpcmdlist_t RDP_CmdList(void* buffer, uint32_t size);
 void RDP_Write(rdpcmdlist_t* cmdlist, uint32_t word);

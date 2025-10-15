@@ -36,6 +36,7 @@ typedef union {
 	struct {
 		float u, v;
 	};
+	float f[2];
 } vec2_t;
 
 typedef union {
@@ -48,6 +49,7 @@ typedef union {
 	struct {
 		float u, v, w;
 	};
+	float f[3];
 } vec3_t;
 
 typedef union {

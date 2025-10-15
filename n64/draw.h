@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 
+void SetDrawFramebuffer(void* addr);
 void BlitFontTexture();
 void BlitTexture(void* textureData, int x, int y, int u, int v, int w, int h);
 void DrawFontGlyph(uint32_t* font, uint8_t glyph, int x, int y);

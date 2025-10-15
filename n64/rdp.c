@@ -11,7 +11,7 @@
 #include "registers.h"
 
 
-uint8_t __attribute__((aligned(8))) _commandList[1024*4];
+uint8_t __attribute__((aligned(8))) _commandList[1024*10];
 uintptr_t _commandListBuffer;
 uint32_t  _commandListSize; // in bytes
 uint32_t  _commandListCursor; // in bytes
