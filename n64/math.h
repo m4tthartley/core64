@@ -7,6 +7,7 @@
 #define __MATH_HEADER__
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "util.h"
 #include "../resources/tables.h"
@@ -96,6 +97,12 @@ typedef struct {
 inline fixed32_t tofixed32(float x)
 {
 	x *= 65536.0f;
+	if (x > (float)0x7FFFFFFF) {
+		return 0x7FFFFFFF;
+	}
+	if (x < (float)-0x7FFFFFFF) {
+		return -0x7FFFFFFF;
+	}
 	return (fixed32_t)x;
 }
 
@@ -115,6 +122,8 @@ inline float divsafe(float x, float div)
 {
 	if (div < EPSILON && div > -EPSILON) {
 		return 0;
+		// div = 1.0f;
+		// div = div < 0 ? -EPSILON : EPSILON;
 	}
 
 	return x / div;
@@ -186,8 +195,8 @@ vec3_t cross3(vec3_t a, vec3_t b) {
 
 inline vec3fx32_t vec3tofixed32(vec3_t v)
 {
-	v = mul3f(v, 65536.0f);
-	return (vec3fx32_t){ v.x, v.y, v.z };
+	// v = mul3f(v, 65536.0f);
+	return (vec3fx32_t){ tofixed32(v.x), tofixed32(v.y), tofixed32(v.z) };
 }
 
 inline vec4_t vec4(float x, float y, float z, float w)
@@ -262,6 +271,42 @@ inline fixed32_t floorfx32(fixed32_t x)
 		x -= 0x10000;
 	}
 	return x & ~fracMask;
+}
+
+
+// FLOAT
+inline bool isnan(float x)
+{
+	uint32_t u = *(uint32_t*)&x;
+	uint32_t exp = (u>>23) & 0xFF;
+	uint32_t man = u & 0x7FFFFF;
+	if (exp == 0xFF && man) {
+		return 1;
+	}
+	return 0;
+}
+
+inline bool isinf(float x)
+{
+	uint32_t u = *(uint32_t*)&x;
+	uint32_t exp = (u>>23) & 0xFF;
+	uint32_t man = u & 0x7FFFFF;
+	if (exp == 0xFF && !man) {
+		return 1;
+	}
+	return 0;
+}
+
+inline bool isvalid(float x)
+{
+	uint32_t u = *(uint32_t*)&x;
+	uint32_t exp = (u>>23) & 0xFF;
+
+	if (exp == 0xFF) {
+		return 0;
+	}
+
+	return 1;
 }
 
 

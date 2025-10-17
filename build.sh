@@ -56,7 +56,7 @@ echo "\ndone."
 
 # $link 
 
-# /opt/libdragon/bin/mips64-elf-objdump -d -h -f ./build/main.elf > ./build/rom_elf_dump.txt
+/opt/libdragon/bin/mips64-elf-objdump -d -h -f ./build/main.elf > ./build/rom_elf_dump.txt
 # /opt/libdragon/bin/mips64-elf-readelf ./build/main.elf -l
 # /opt/libdragon/bin/mips64-elf-objdump -h ./build/main.elf
 

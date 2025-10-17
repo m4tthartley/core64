@@ -113,8 +113,9 @@ int main()
 		};
 
 		float sin = fx32tof(SineFx(time/10));
-		float cos = fx32tof(CosineFx(time/10))
-		;
+		float cos = fx32tof(CosineFx(time/10));
+		float sin2 = fx32tof(SineFx(time/4));
+		float cos2 = fx32tof(CosineFx(time/4));
 		rdp_vertex_t* verts = cubeVertices;
 		for (int i=0; i<arraysize(cubeVertices); ++i) {
 			// nice
@@ -141,12 +142,11 @@ int main()
 			16, 17, 18, 16, 18, 19,
 			20, 21, 22, 20, 22, 23,
 		};
-		GFX_DrawIndices(verts, indices, arraysize(indices));
+		// GFX_DrawIndices(verts, indices, arraysize(indices));
 
 
 		// Tunnel
 		rdp_vertex_t tunnelSegmentBuffer[] = {
-
 			{ .pos={-0.5f, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
 			{ .pos={+0.5f, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
 			{ .pos={+0.5f, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
@@ -201,18 +201,33 @@ int main()
 			QUAD_INDICES(7),
 		};
 
+		GFX_SetPosition(0, -2, -3);
+
 		verts = tunnelSegmentBuffer;
+		// sin = 1.0f;
+		// cos = 0.0f;
 		for (int i=0; i<arraysize(tunnelSegmentBuffer); ++i) {
 			// nice
 			verts[i].pos.xyz = vec3(verts[i].pos.x*cos + verts[i].pos.z*sin, verts[i].pos.y, verts[i].pos.z*cos - verts[i].pos.x*sin);
 			verts[i].normal = vec3(verts[i].normal.x*cos + verts[i].normal.z*sin, verts[i].normal.y, verts[i].normal.z*cos - verts[i].normal.x*sin);
 		}
 
-		GFX_SetPosition(0, -2, -3);
 		GFX_DrawIndices(tunnelSegmentBuffer, tunnelSegmentIndices, arraysize(tunnelSegmentIndices));
+
+		// rdp_vertex_t testBuffer[] = {
+		// 	{ .pos={-4.5f, -0.5f, +0.0f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+		// 	{ .pos={+6.0f, -6.0f, +0.0f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+		// 	{ .pos={+4.5f, +2.5f, +0.0f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+		// 	{ .pos={-0.5f, +0.5f, +0.0f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+		// };
+		// GFX_SetPosition(-sin*4, 0, -3);
+		// GFX_DrawIndices(testBuffer, tunnelSegmentIndices, 3);
 
 		RDP_FullSync();
 		RDP_ExecuteAndWait();
+
+		DrawStrBG(10, 10, "Smallest W: %f", __debugSmallestW);
+		__debugSmallestW = 100;
 
 		// vec2_t l0 = {150 + -50*cos, 150 + -50*sin};
 		// vec2_t l1 = {150 + +50*cos, 150 + +50*sin};

@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "core64.h"
+#include "draw.h"
 #include "registers.h"
 #include "util.h"
 
@@ -168,6 +169,8 @@ void ExceptionHandler(interruptframe_t* frame)
 					DrawFontStringWithBG(N64Font, "Invalid Operation", 10, 45);
 					break;
 			}
+
+			DrawStrBG(10, 55, "EPC: %32x", frame->epc);
 		} break;
 
 		default:

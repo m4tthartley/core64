@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include "draw.h"
+#include "gfx.h"
 #include "rdp.h"
 #include "util.h"
 #include "system.h"
@@ -595,13 +596,48 @@ void RDP_Triangle(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 		vec3_t yTexCoef = div3fsafe(sub3(mul3f(longEdgeTexDelta, highDiffX), mul3f(highEdgeTexDelta, longDiffX)), determinant);
 		vec3_t edgeTexCoef = add3(yTexCoef, mul3f(xTexCoef, edgeRatio));
 		
+		assert(!isnan(xTexCoef.x));
+		assert(!isnan(xTexCoef.y));
+		assert(!isnan(xTexCoef.z));
+		assert(!isinf(xTexCoef.x));
+		assert(!isinf(xTexCoef.y));
+		assert(!isinf(xTexCoef.z));
+		assert(!isnan(yTexCoef.x));
+		assert(!isnan(yTexCoef.y));
+		assert(!isnan(yTexCoef.z));
+		assert(!isinf(yTexCoef.x));
+		assert(!isinf(yTexCoef.y));
+		assert(!isinf(yTexCoef.z));
+		assert(!isnan(edgeTexCoef.x));
+		assert(!isnan(edgeTexCoef.y));
+		assert(!isnan(edgeTexCoef.z));
+		assert(!isinf(edgeTexCoef.x));
+		assert(!isinf(edgeTexCoef.y));
+		assert(!isinf(edgeTexCoef.z));
+
+		assert(isvalid(xTexCoef.x));
+		assert(isvalid(xTexCoef.y));
+		assert(isvalid(xTexCoef.z));
+		assert(isvalid(yTexCoef.x));
+		assert(isvalid(yTexCoef.y));
+		assert(isvalid(yTexCoef.z));
+		assert(isvalid(edgeTexCoef.x));
+		assert(isvalid(edgeTexCoef.y));
+		assert(isvalid(edgeTexCoef.z));
+
+		// DrawStrBG(10, 100, "xTexCoef %f, %f, %f", xTexCoef.x, xTexCoef.y, xTexCoef.z);
 		vec3fx32_t xTexCoefFixed = vec3tofixed32(xTexCoef);
+		// DrawStrBG(10, 110, "zTexCoef %f, %f, %f", yTexCoef.x, yTexCoef.y, yTexCoef.z);
 		vec3fx32_t yTexCoefFixed = vec3tofixed32(yTexCoef);
+		// DrawStrBG(10, 120, "edgeTexCoef %f, %f, %f", edgeTexCoef.x, edgeTexCoef.y, edgeTexCoef.z);
 		vec3fx32_t edgeTexCoefFixed = vec3tofixed32(edgeTexCoef);
 
 		uint32_t finalu = tofixed32(texData0.u);
 		uint32_t finalv = tofixed32(texData0.v);
 		uint32_t finalw = tofixed32(v0.invw);
+		// uint32_t finalw = FxhiMultiplier;
+		// DrawStrBG(10, 10, "finalw %u", finalw);
+		// if (finalw == 0) finalw = 1;
 
 		// int part at xh, floor(yh)
 		RDP_WriteWord((finalu&0xFFFF0000) | ((finalv>>16)&0xFFFF));
