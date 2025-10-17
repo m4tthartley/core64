@@ -1,5 +1,5 @@
 /*
-	Created by Matt Hartley on 14/10/2025.
+	Created by Matt Hartley on 17/10/2025.
 	Copyright 2025 GiantJelly. All rights reserved.
 */
 
@@ -147,97 +147,140 @@ int main()
 
 		// Tunnel
 		rdp_vertex_t tunnelSegmentBuffer[] = {
-			{ .pos={-0.5f, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+#define FLOOR(x, z) \
+			{ .pos={-0.5f + x, +0.0f, -0.5f + z},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},\
+			{ .pos={+0.5f + x, +0.0f, -0.5f + z},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},\
+			{ .pos={+0.5f + x, +0.0f, +0.5f + z},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},\
+			{ .pos={-0.5f + x, +0.0f, +0.5f + z},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={-0.5f - 1, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f - 1, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f - 1, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f - 1, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+			// { .pos={-0.5f - 1, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			// { .pos={+0.5f - 1, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			// { .pos={+0.5f - 1, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			// { .pos={-0.5f - 1, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={-0.5f + 1, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f + 1, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f + 1, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f + 1, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+			// { .pos={-0.5f + 1, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			// { .pos={+0.5f + 1, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			// { .pos={+0.5f + 1, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			// { .pos={-0.5f + 1, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			// bottom corners
-			{ .pos={-0.5f - 2, +0.0f + 1, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f - 2, +0.0f + 0, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f - 2, +0.0f + 0, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f - 2, +0.0f + 1, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+			FLOOR(-1, -1)
+			FLOOR(+0, -1)
+			FLOOR(+1, -1)
+			FLOOR(-1, +0)
+			FLOOR(+0, +0)
+			FLOOR(+1, +0)
+			FLOOR(-1, +1)
+			FLOOR(+0, +1)
+			FLOOR(+1, +1)
 
-			{ .pos={-0.5f + 2, +0.0f + 0, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f + 2, +0.0f + 1, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f + 2, +0.0f + 1, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f + 2, +0.0f + 0, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+			// bottom left corner
+			{ .pos={-0.5f - 2, +0.0f + 1, -0.5f},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f - 2, +0.0f + 0, -0.5f},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			{ .pos={+0.5f - 2, +0.0f + 0, +0.5f},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			{ .pos={-0.5f - 2, +0.0f + 1, +0.5f},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
+			{ .pos={-0.5f - 2, +0.0f + 1, -0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f - 2, +0.0f + 0, -0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			{ .pos={+0.5f - 2, +0.0f + 0, +0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			{ .pos={-0.5f - 2, +0.0f + 1, +0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
+			{ .pos={-0.5f - 2, +0.0f + 1, -0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f - 2, +0.0f + 0, -0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			{ .pos={+0.5f - 2, +0.0f + 0, +0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			{ .pos={-0.5f - 2, +0.0f + 1, +0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
+			// bottom right corner
+			{ .pos={-0.5f + 2, +0.0f + 0, -0.5f},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f + 2, +0.0f + 1, -0.5f},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			{ .pos={+0.5f + 2, +0.0f + 1, +0.5f},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			{ .pos={-0.5f + 2, +0.0f + 0, +0.5f},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
+			{ .pos={-0.5f + 2, +0.0f + 0, -0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f + 2, +0.0f + 1, -0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			{ .pos={+0.5f + 2, +0.0f + 1, +0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			{ .pos={-0.5f + 2, +0.0f + 0, +0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
+			{ .pos={-0.5f + 2, +0.0f + 0, -0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			{ .pos={+0.5f + 2, +0.0f + 1, -0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			{ .pos={+0.5f + 2, +0.0f + 1, +0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			{ .pos={-0.5f + 2, +0.0f + 0, +0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
 			// left wall
-			{ .pos={-0.5f - 2, +0.0f + 1, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={-0.5f - 2, +0.0f + 1, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={-0.5f - 2, +1.0f + 1, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f - 2, +1.0f + 1, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+#define LEFTWALL(x, y) \
+			{ .pos={-0.5f - 2, +0.0f + 1 + y, +0.5f + x},	.normal={1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},\
+			{ .pos={-0.5f - 2, +0.0f + 1 + y, -0.5f + x},	.normal={1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},\
+			{ .pos={-0.5f - 2, +1.0f + 1 + y, -0.5f + x},	.normal={1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},\
+			{ .pos={-0.5f - 2, +1.0f + 1 + y, +0.5f + x},	.normal={1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={-0.5f - 2, +0.0f + 2, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={-0.5f - 2, +0.0f + 2, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={-0.5f - 2, +1.0f + 2, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f - 2, +1.0f + 2, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+			// right wall
+#define RIGHTWALL(x, y) \
+			{ .pos={+0.5f + 2, +0.0f + 1 + y, -0.5f + x},	.normal={-1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},\
+			{ .pos={+0.5f + 2, +0.0f + 1 + y, +0.5f + x},	.normal={-1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},\
+			{ .pos={+0.5f + 2, +1.0f + 1 + y, +0.5f + x},	.normal={-1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},\
+			{ .pos={+0.5f + 2, +1.0f + 1 + y, -0.5f + x},	.normal={-1, 0, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={-0.5f - 2, +0.0f + 3, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={-0.5f - 2, +0.0f + 3, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={-0.5f - 2, +1.0f + 3, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f - 2, +1.0f + 3, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+			// { .pos={-0.5f - 2, +0.0f + 2, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			// { .pos={-0.5f - 2, +0.0f + 2, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			// { .pos={-0.5f - 2, +1.0f + 2, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			// { .pos={-0.5f - 2, +1.0f + 2, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
+			// { .pos={-0.5f - 2, +0.0f + 3, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			// { .pos={-0.5f - 2, +0.0f + 3, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			// { .pos={-0.5f - 2, +1.0f + 3, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			// { .pos={-0.5f - 2, +1.0f + 3, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
+			LEFTWALL(-1, +0)
+			LEFTWALL(+0, +0)
+			LEFTWALL(+1, +0)
+			LEFTWALL(-1, +1)
+			LEFTWALL(+0, +1)
+			LEFTWALL(+1, +1)
+			LEFTWALL(-1, +2)
+			LEFTWALL(+0, +2)
+			LEFTWALL(+1, +2)
+
+			RIGHTWALL(-1, +0)
+			RIGHTWALL(+0, +0)
+			RIGHTWALL(+1, +0)
+			RIGHTWALL(-1, +1)
+			RIGHTWALL(+0, +1)
+			RIGHTWALL(+1, +1)
+			RIGHTWALL(-1, +2)
+			RIGHTWALL(+0, +2)
+			RIGHTWALL(+1, +2)
 		};
 		
-		uint16_t tunnelSegmentIndices[] = {
-			QUAD_INDICES(0),
-			QUAD_INDICES(1),
-			QUAD_INDICES(2),
-			QUAD_INDICES(3),
-			QUAD_INDICES(4),
-			QUAD_INDICES(5),
-			QUAD_INDICES(6),
-			QUAD_INDICES(7),
-		};
+		// uint16_t tunnelSegmentIndices[] = {
+		// 	QUAD_INDICES(0),
+		// 	QUAD_INDICES(1),
+		// 	QUAD_INDICES(2),
+		// 	QUAD_INDICES(3),
+		// 	QUAD_INDICES(4),
+		// 	QUAD_INDICES(5),
+		// 	QUAD_INDICES(6),
+		// 	QUAD_INDICES(7),
+		// };
 
-		GFX_SetPosition(0, -2, -3);
+		GFX_SetPosition(0, -2, -5);
+		__lights[0] = vec3(sin2*2.25f, 0, -4);
 
 		verts = tunnelSegmentBuffer;
-		// sin = 1.0f;
-		// cos = 0.0f;
-		for (int i=0; i<arraysize(tunnelSegmentBuffer); ++i) {
-			// nice
-			verts[i].pos.xyz = vec3(verts[i].pos.x*cos + verts[i].pos.z*sin, verts[i].pos.y, verts[i].pos.z*cos - verts[i].pos.x*sin);
-			verts[i].normal = vec3(verts[i].normal.x*cos + verts[i].normal.z*sin, verts[i].normal.y, verts[i].normal.z*cos - verts[i].normal.x*sin);
-		}
+		// for (int i=0; i<arraysize(tunnelSegmentBuffer); ++i) {
+		// 	verts[i].pos.xyz = vec3(verts[i].pos.x*cos + verts[i].pos.z*sin, verts[i].pos.y, verts[i].pos.z*cos - verts[i].pos.x*sin);
+		// 	verts[i].normal = vec3(verts[i].normal.x*cos + verts[i].normal.z*sin, verts[i].normal.y, verts[i].normal.z*cos - verts[i].normal.x*sin);
+		// }
 
-		GFX_DrawIndices(tunnelSegmentBuffer, tunnelSegmentIndices, arraysize(tunnelSegmentIndices));
-
-		// rdp_vertex_t testBuffer[] = {
-		// 	{ .pos={-4.5f, -0.5f, +0.0f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-		// 	{ .pos={+6.0f, -6.0f, +0.0f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-		// 	{ .pos={+4.5f, +2.5f, +0.0f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-		// 	{ .pos={-0.5f, +0.5f, +0.0f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
-		// };
-		// GFX_SetPosition(-sin*4, 0, -3);
-		// GFX_DrawIndices(testBuffer, tunnelSegmentIndices, 3);
+		GFX_DrawQuadBuffer(tunnelSegmentBuffer, arraysize(tunnelSegmentBuffer));
 
 		RDP_FullSync();
 		RDP_ExecuteAndWait();
 
-		DrawStrBG(10, 10, "Smallest W: %f", __debugSmallestW);
-		__debugSmallestW = 100;
-
-		// vec2_t l0 = {150 + -50*cos, 150 + -50*sin};
-		// vec2_t l1 = {150 + +50*cos, 150 + +50*sin};
-		// DrawLine(l0.x, l0.y, l1.x, l1.y, Color16(31, 0, 31, 1));
-		for (int idx=0; idx<__debugTriangleCount; ++idx) {
-			debugtriangle_t tri = __debugTriangles[idx];
-			DrawLine(tri.v0.x, tri.v0.y, tri.v1.x, tri.v1.y, Color16(31, 0, 31, 1));
-			DrawLine(tri.v1.x, tri.v1.y, tri.v2.x, tri.v2.y, Color16(31, 0, 31, 1));
-			DrawLine(tri.v2.x, tri.v2.y, tri.v0.x, tri.v0.y, Color16(31, 0, 31, 1));
-		}
+		// for (int idx=0; idx<__debugTriangleCount; ++idx) {
+		// 	debugtriangle_t tri = __debugTriangles[idx];
+		// 	DrawLine(tri.v0.x, tri.v0.y, tri.v1.x, tri.v1.y, Color16(31, 0, 31, 1));
+		// 	DrawLine(tri.v1.x, tri.v1.y, tri.v2.x, tri.v2.y, Color16(31, 0, 31, 1));
+		// 	DrawLine(tri.v2.x, tri.v2.y, tri.v0.x, tri.v0.y, Color16(31, 0, 31, 1));
+		// }
 		__debugTriangleCount = 0;
 
 		WaitForVideoSync();

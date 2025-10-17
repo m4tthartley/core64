@@ -27,7 +27,7 @@ n64tool=/opt/libdragon/bin/n64tool
 flags="-c -g3 -O2 -G 0 -MMD -nostdlib -nostartfiles -ffreestanding -nodefaultlibs -fno-builtin-memset"
 linkFlags="-T n64/linker.ld -nostdlib"
 
-$compile $flags main.c -S -o ./build/main.s
+# $compile $flags main.c -S -o ./build/main.s
 $compile $flags main.c -o ./build/main.o
 $compile $flags -x assembler-with-cpp n64/boot.s -o ./build/boot.o
 # $compile $flags -x assembler-with-cpp exception.s -o ./build/exception.o
@@ -56,7 +56,7 @@ echo "\ndone."
 
 # $link 
 
-/opt/libdragon/bin/mips64-elf-objdump -d -h -f ./build/main.elf > ./build/rom_elf_dump.txt
+# /opt/libdragon/bin/mips64-elf-objdump -d -h -f ./build/main.elf > ./build/rom_elf_dump.txt
 # /opt/libdragon/bin/mips64-elf-readelf ./build/main.elf -l
 # /opt/libdragon/bin/mips64-elf-objdump -h ./build/main.elf
 

@@ -14,6 +14,10 @@ float __gfxPositionOffsetX = 0;
 float __gfxPositionOffsetY = 0;
 float __gfxPositionOffsetZ = 0;
 
+vec3_t __lights[] = {
+	{2, 0, -5},
+};
+
 debugtriangle_t __debugTriangles[1024];
 uint32_t __debugTriangleCount = 0;
 
@@ -179,18 +183,6 @@ void GFX_DrawClippedTriangle(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 	v1.invw *= (float)0x7FFF;
 	v2.invw *= (float)0x7FFF;
 
-	// vec3_t highEdge = sub3(v1.pos.xyz, v0.pos.xyz);
-	// vec3_t longEdge = sub3(v2.pos.xyz, v0.pos.xyz);
-	// vec3_t normal = normalize3(cross3(highEdge, longEdge));
-
-	vec3_t sunDir = normalize3(vec3(1, 1, 1));
-	float ambient = 0.1f;
-	float light = ambient + (max(dot3(v0.normal, sunDir), 0.0f) * (1.0f-ambient));
-
-	v0.color.xyz = vec3f(light * 255.0f);
-	v1.color.xyz = vec3f(light * 255.0f);
-	v2.color.xyz = vec3f(light * 255.0f);
-
 	RDP_Triangle(v0, v1, v2);
 
 	// DrawStrBG(8, 8, "clip z: %f, clip w: %f", v0.pos.z, ndc0.w);
@@ -233,6 +225,31 @@ void GFX_DrawTriangleClip(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 
 float __debugSmallestW;
 
+vec3_t GFX_VertexLight(rdp_vertex_t v)
+{
+	// vec3_t highEdge = sub3(v1.pos.xyz, v0.pos.xyz);
+	// vec3_t longEdge = sub3(v2.pos.xyz, v0.pos.xyz);
+	// vec3_t normal = normalize3(cross3(highEdge, longEdge));
+
+	// vec3_t sunDir = normalize3(vec3(1, 1, 1));
+	float ambient = 0.1f;
+	// float light = ambient + (max(dot3(v0.normal, sunDir), 0.0f) * (1.0f-ambient));
+
+	float light = ambient;
+	for (int idx=0; idx<arraysize(__lights); ++idx) {
+		vec3_t diff = sub3(__lights[idx], v.pos.xyz);
+		vec3_t dir = normalize3(diff);
+		float diffuse = max(dot3(v.normal, dir), 0.0f);// * (1.0f-ambient);
+
+		float dist = len3(sub3(__lights[idx], v.pos.xyz));
+		float attenuation = 1.0f / (1.0f + (dist));
+
+		light += diffuse * attenuation;
+	}
+
+	return vec3f(light);
+}
+
 void GFX_DrawTriangle3D(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 {
 	// v0.pos.x += __gfxPositionOffsetX;
@@ -246,6 +263,14 @@ void GFX_DrawTriangle3D(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 	v0.pos.xyz = add3(v0.pos.xyz, offset);
 	v1.pos.xyz = add3(v1.pos.xyz, offset);
 	v2.pos.xyz = add3(v2.pos.xyz, offset);
+
+	{
+		
+
+		v0.color.xyz = mul3(GFX_VertexLight(v0), vec3f(255.0f));
+		v1.color.xyz = mul3(GFX_VertexLight(v1), vec3f(255.0f));
+		v2.color.xyz = mul3(GFX_VertexLight(v2), vec3f(255.0f));
+	}
 
 	mat4_t mat = PerspectiveMatrix(90, 320.0f/288.0f, 0.1f, 100.0f);
 	vec4_t clip0 = Vec4MulMat4(vec4(v0.pos.x, v0.pos.y, v0.pos.z, 1), mat);
@@ -285,5 +310,15 @@ void GFX_DrawVertices(rdp_vertex_t* vertices, int num)
 
 	for (int idx=0; idx<num; idx+=3) {
 		GFX_DrawTriangle3D(vertices[idx+0], vertices[idx+1], vertices[idx+2]);
+	}
+}
+
+void GFX_DrawQuadBuffer(rdp_vertex_t* vertices, int num)
+{
+	assert(!(num & 0b11));
+
+	for (int idx=0; idx<num; idx+=4) {
+		GFX_DrawTriangle3D(vertices[idx+0], vertices[idx+1], vertices[idx+2]);
+		GFX_DrawTriangle3D(vertices[idx+0], vertices[idx+2], vertices[idx+3]);
 	}
 }
