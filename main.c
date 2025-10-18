@@ -24,11 +24,21 @@ int main()
 	static fixed32_t time = 0;
 	
 	InitDefaultVI();
-	void* framebuffer = UncachedAddress(AllocMemory(320*288*2, 64));
-	void* depthbuffer = UncachedAddress(AllocMemory(320*288*2, 64));
-	SetVideoFramebuffer(framebuffer);
+	void* _framebuffers[] = {
+		UncachedAddress(AllocMemory(320*288*2, 64)),
+		UncachedAddress(AllocMemory(320*288*2, 64)),
+	};
+	void* _depthbuffers[] = {
+		UncachedAddress(AllocMemory(320*288*2, 64)),
+		UncachedAddress(AllocMemory(320*288*2, 64)),
+	};
+	// void* framebuffer = _framebuffers[0];
+	// void* depthbuffer
+	uint32_t fbIndex = 0;
+	uint32_t zbIndex = 0;
 
-	SetDrawFramebuffer(framebuffer);
+	SetVideoFramebuffer(_framebuffers[fbIndex]);
+	SetDrawFramebuffer(_framebuffers[fbIndex]);
 	DrawStr(GetResolution().width/2 - 5*6, GetResolution().height / 2 - 6, "Loading...");
 
 	bool map[16*16];
@@ -39,23 +49,50 @@ int main()
 	}
 
 	for (;;) {
-		memset(depthbuffer, 0xFFFF, 320*288*2);
+		uint32_t startClock = _GetClock();
+
+		SetDrawFramebuffer(_framebuffers[fbIndex]);
+		// memset(_depthbuffers[zbIndex], 0xFF, 320*288*2);
+		// uint32_t len = (320*288*2) / 8;
+		// for (int idx=0; idx<len; ++idx) {
+		// 	((uint64_t*)_depthbuffers[zbIndex])[idx] = 0xFFFFFFFFFFFFFFFF;
+		// }
 
 		// PollTime();
 		// time += GetDeltaTime()
 		time += tofixed32(2.0f / 50.0f);
 
 		RDP_StartCmdList(0, 0);
-
-		RDP_SetColorImage(RDP_TEXTURE_IMAGE_FORMAT_RGBA16, 320, framebuffer);
-		RDP_SetDepthImage(depthbuffer);
 		RDP_SetScissor(0, 0, 320, 288);
-		
 		RDP_SetOtherModes(RDP_MODE_FILL);
+
+		// Clear depth buffer
+		// RDP_SetOtherModes(RDP_MODE_FILL);
+		RDP_SetColorImage(RDP_TEXTURE_IMAGE_FORMAT_RGBA16, 320, _depthbuffers[zbIndex]);
+		RDP_PipeSync();
+		RDP_SetFillColor16(/*(0x3FFF << 2) | 0x3*/ 0xFFFF);
+		// RDP_FillRect(0, 0, 320/2, 288/2);
+		// RDP_FillRect(320/2, 0, 320/2, 288);
+		// RDP_FillRect(0, 288/2, 320/2, 288/2);
+		// RDP_FillRect(320/2, 288/2, 320/2, 288/2);
+		RDP_FillRect(0, 0, 320, 288);
+		RDP_PipeSync();
+
+		// RDP_FullSync();
+		// RDP_ExecuteAndWait();
+
+		// RDP_StartCmdList(0, 0);
+
+		// Clear framebuffer
+		RDP_SetColorImage(RDP_TEXTURE_IMAGE_FORMAT_RGBA16, 320, _framebuffers[fbIndex]);
+		RDP_SetDepthImage(_depthbuffers[zbIndex]);
+		RDP_PipeSync();
 		RDP_SetFillColor16((2<<11) | (2<<6) | (2<<1) | 1);
 		RDP_FillRect(0, 0, 320, 288);
 
-		RDP_SetFillColor16((0<<11) | (0<<6) | (31<<1) | 1);
+		RDP_PipeSync();
+
+		// RDP_SetFillColor16((0<<11) | (0<<6) | (31<<1) | 1);
 		// RDP_FillRect(100 + fx32tof(SineFx(time)) * 100.0f, 100 + fx32tof(CosineFx(time)) * 100.0f, 10, 10);
 
 		// for (int y=0; y<16; ++y) {
@@ -153,6 +190,12 @@ int main()
 			{ .pos={+0.5f + x, +0.0f, +0.5f + z},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},\
 			{ .pos={-0.5f + x, +0.0f, +0.5f + z},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
+#define CEILING(x, z) \
+			{ .pos={+0.5f + x, +5.0f, -0.5f + z},	.normal={0, -1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},\
+			{ .pos={-0.5f + x, +5.0f, -0.5f + z},	.normal={0, -1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},\
+			{ .pos={-0.5f + x, +5.0f, +0.5f + z},	.normal={0, -1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},\
+			{ .pos={+0.5f + x, +5.0f, +0.5f + z},	.normal={0, -1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
 			// { .pos={-0.5f - 1, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
 			// { .pos={+0.5f - 1, +0.0f, -0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
 			// { .pos={+0.5f - 1, +0.0f, +0.5f},	.normal={0, 1, 0},	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
@@ -173,37 +216,59 @@ int main()
 			FLOOR(+0, +1)
 			FLOOR(+1, +1)
 
-			// bottom left corner
-			{ .pos={-0.5f - 2, +0.0f + 1, -0.5f},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f - 2, +0.0f + 0, -0.5f},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f - 2, +0.0f + 0, +0.5f},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f - 2, +0.0f + 1, +0.5f},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+			CEILING(-1, -1)
+			CEILING(+0, -1)
+			CEILING(+1, -1)
+			CEILING(-1, +0)
+			CEILING(+0, +0)
+			CEILING(+1, +0)
+			CEILING(-1, +1)
+			CEILING(+0, +1)
+			CEILING(+1, +1)
 
-			{ .pos={-0.5f - 2, +0.0f + 1, -0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f - 2, +0.0f + 0, -0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f - 2, +0.0f + 0, +0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f - 2, +0.0f + 1, +0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+#define CORNER_BOTTOM_LEFT(a) \
+			{ .pos={+0.5f - 2, +0.0f + 0, -0.5f + a},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},\
+			{ .pos={+0.5f - 2, +0.0f + 0, +0.5f + a},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},\
+			{ .pos={-0.5f - 2, +0.0f + 1, +0.5f + a},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},\
+			{ .pos={-0.5f - 2, +0.0f + 1, -0.5f + a},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={-0.5f - 2, +0.0f + 1, -0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f - 2, +0.0f + 0, -0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f - 2, +0.0f + 0, +0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f - 2, +0.0f + 1, +0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+#define CORNER_TOP_LEFT(a) \
+			{ .pos={-0.5f - 2, +4.0f + 0, -0.5f + a},	.normal=normalize3(vec3(1, -1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},\
+			{ .pos={-0.5f - 2, +4.0f + 0, +0.5f + a},	.normal=normalize3(vec3(1, -1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},\
+			{ .pos={+0.5f - 2, +4.0f + 1, +0.5f + a},	.normal=normalize3(vec3(1, -1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},\
+			{ .pos={+0.5f - 2, +4.0f + 1, -0.5f + a},	.normal=normalize3(vec3(1, -1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			// bottom right corner
-			{ .pos={-0.5f + 2, +0.0f + 0, -0.5f},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f + 2, +0.0f + 1, -0.5f},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f + 2, +0.0f + 1, +0.5f},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f + 2, +0.0f + 0, +0.5f},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+			// { .pos={-0.5f - 2, +0.0f + 1, -0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			// { .pos={+0.5f - 2, +0.0f + 0, -0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			// { .pos={+0.5f - 2, +0.0f + 0, +0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			// { .pos={-0.5f - 2, +0.0f + 1, +0.5f - 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={-0.5f + 2, +0.0f + 0, -0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f + 2, +0.0f + 1, -0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f + 2, +0.0f + 1, +0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f + 2, +0.0f + 0, +0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+			// { .pos={-0.5f - 2, +0.0f + 1, -0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			// { .pos={+0.5f - 2, +0.0f + 0, -0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			// { .pos={+0.5f - 2, +0.0f + 0, +0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			// { .pos={-0.5f - 2, +0.0f + 1, +0.5f + 1},	.normal=normalize3(vec3(1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
-			{ .pos={-0.5f + 2, +0.0f + 0, -0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
-			{ .pos={+0.5f + 2, +0.0f + 1, -0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
-			{ .pos={+0.5f + 2, +0.0f + 1, +0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
-			{ .pos={-0.5f + 2, +0.0f + 0, +0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+#define CORNER_BOTTOM_RIGHT(a) \
+			{ .pos={-0.5f + 2, +0.0f + 0, -0.5f + a},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},\
+			{ .pos={-0.5f + 2, +0.0f + 0, +0.5f + a},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},\
+			{ .pos={+0.5f + 2, +0.0f + 1, +0.5f + a},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},\
+			{ .pos={+0.5f + 2, +0.0f + 1, -0.5f + a},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
+#define CORNER_TOP_RIGHT(a) \
+			{ .pos={+0.5f + 2, +4.0f + 0, -0.5f + a},	.normal=normalize3(vec3(-1, -1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},\
+			{ .pos={+0.5f + 2, +4.0f + 0, +0.5f + a},	.normal=normalize3(vec3(-1, -1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},\
+			{ .pos={-0.5f + 2, +4.0f + 1, +0.5f + a},	.normal=normalize3(vec3(-1, -1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},\
+			{ .pos={-0.5f + 2, +4.0f + 1, -0.5f + a},	.normal=normalize3(vec3(-1, -1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
+			// { .pos={-0.5f + 2, +0.0f + 0, -0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			// { .pos={+0.5f + 2, +0.0f + 1, -0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			// { .pos={+0.5f + 2, +0.0f + 1, +0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			// { .pos={-0.5f + 2, +0.0f + 0, +0.5f - 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
+
+			// { .pos={-0.5f + 2, +0.0f + 0, -0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 0.0f}},
+			// { .pos={+0.5f + 2, +0.0f + 1, -0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 0.0f}},
+			// { .pos={+0.5f + 2, +0.0f + 1, +0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={16.0f, 16.0f}},
+			// { .pos={-0.5f + 2, +0.0f + 0, +0.5f + 1},	.normal=normalize3(vec3(-1, 1, 0)),	.color={255, 255, 255, 255},	.texcoord={0.0f, 16.0f}},
 
 			// left wall
 #define LEFTWALL(x, y) \
@@ -238,6 +303,12 @@ int main()
 			LEFTWALL(-1, +2)
 			LEFTWALL(+0, +2)
 			LEFTWALL(+1, +2)
+			CORNER_BOTTOM_LEFT(0)
+			CORNER_BOTTOM_LEFT(1)
+			CORNER_BOTTOM_LEFT(-1)
+			CORNER_TOP_LEFT(0)
+			CORNER_TOP_LEFT(1)
+			CORNER_TOP_LEFT(-1)
 
 			RIGHTWALL(-1, +0)
 			RIGHTWALL(+0, +0)
@@ -248,6 +319,12 @@ int main()
 			RIGHTWALL(-1, +2)
 			RIGHTWALL(+0, +2)
 			RIGHTWALL(+1, +2)
+			CORNER_BOTTOM_RIGHT(0)
+			CORNER_BOTTOM_RIGHT(1)
+			CORNER_BOTTOM_RIGHT(-1)
+			CORNER_TOP_RIGHT(0)
+			CORNER_TOP_RIGHT(1)
+			CORNER_TOP_RIGHT(-1)
 		};
 		
 		// uint16_t tunnelSegmentIndices[] = {
@@ -261,8 +338,7 @@ int main()
 		// 	QUAD_INDICES(7),
 		// };
 
-		GFX_SetPosition(0, -2, -5);
-		__lights[0] = vec3(sin2*2.25f, 0, -4);
+		__lights[0] = vec3(sin2*2.25f, cos2*2.25f, -4);
 
 		verts = tunnelSegmentBuffer;
 		// for (int i=0; i<arraysize(tunnelSegmentBuffer); ++i) {
@@ -270,10 +346,22 @@ int main()
 		// 	verts[i].normal = vec3(verts[i].normal.x*cos + verts[i].normal.z*sin, verts[i].normal.y, verts[i].normal.z*cos - verts[i].normal.x*sin);
 		// }
 
+		float cameraZ = sin2 * 2;
+
+		GFX_SetPosition(0, -2.5f, -5 + cameraZ);
+		// GFX_DrawQuadBuffer(tunnelSegmentBuffer, /*(arraysize(tunnelSegmentBuffer) / 2) & ~3*/ (4*18) + 4*9);
+		GFX_DrawQuadBuffer(tunnelSegmentBuffer, arraysize(tunnelSegmentBuffer));
+
+		GFX_SetPosition(0, -2.5f, -8 + cameraZ);
+		GFX_DrawQuadBuffer(tunnelSegmentBuffer, arraysize(tunnelSegmentBuffer));
+
+		GFX_SetPosition(0, -2.5f, -11 + cameraZ);
 		GFX_DrawQuadBuffer(tunnelSegmentBuffer, arraysize(tunnelSegmentBuffer));
 
 		RDP_FullSync();
 		RDP_ExecuteAndWait();
+
+		BlitPixel3D(__lights[0], 0xFFFF);
 
 		// for (int idx=0; idx<__debugTriangleCount; ++idx) {
 		// 	debugtriangle_t tri = __debugTriangles[idx];
@@ -281,8 +369,18 @@ int main()
 		// 	DrawLine(tri.v1.x, tri.v1.y, tri.v2.x, tri.v2.y, Color16(31, 0, 31, 1));
 		// 	DrawLine(tri.v2.x, tri.v2.y, tri.v0.x, tri.v0.y, Color16(31, 0, 31, 1));
 		// }
+		DrawStr(8, 8, "Triangles %u", __debugTriangleCount);
 		__debugTriangleCount = 0;
 
+		uint32_t frameTime = ClockToMicro(_GetClock() - startClock);
+		DrawStr(8, 16, "Time %u", frameTime);
+
 		WaitForVideoSync();
+		// uint32_t frameTimeWithSync = ClockToMicro(_GetClock() - startClock);
+		// DrawStr(8, 24, "Time w sync %u", frameTimeWithSync);
+
+		SetVideoFramebuffer(_framebuffers[fbIndex]);
+		fbIndex = (fbIndex+1) & 1;
+		zbIndex = (zbIndex+1) & 1;
 	}
 }

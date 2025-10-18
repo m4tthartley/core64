@@ -186,6 +186,7 @@ void RDP_SetScissor(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 	// RDP_Write(&cmdlist, cmd.word0);
 	// RDP_Write(&cmdlist, cmd.word1);
 
+	// TODO: This probably needs -1 on the right and bottom sides
 	RDP_WriteWord(RDPCMD_SET_SCISSOR | ((x0<<2)<<12) | ((y0<<2)));
 	RDP_WriteWord(((x1<<2)<<12) | ((y1<<2)));
 }
@@ -752,8 +753,8 @@ void RDP_FillRect(int32_t x, int32_t y, int32_t width, int32_t height)
 {
 	uint32_t x0 = x<<2;
 	uint32_t y0 = y<<2;
-	uint32_t x1 = (x+width)<<2;
-	uint32_t y1 = (y+height)<<2;
+	uint32_t x1 = (x+width-1)<<2;
+	uint32_t y1 = (y+height-1)<<2;
 
 	RDP_WriteWord((0x36<<24) | (x1<<12) | (y1));
 	RDP_WriteWord((x0<<12) | (y0));

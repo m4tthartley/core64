@@ -154,6 +154,8 @@ void InitDefaultVI()
 
 void WaitForVideoSync()
 {
+	__viInterrupt = 0;
+
 	// volatile uint32_t* viregs = (uint32_t*)VI_BASE;
 	// while (viregs[VI_CURRENTLINE] < 0x200);
 	// while (viregs[VI_CURRENTLINE] >= 0x200);

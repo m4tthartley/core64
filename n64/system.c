@@ -79,6 +79,22 @@ void PollTime()
 	__deltaTime = deltaClocks / clocksPerMs;
 }
 
+uint32_t ClockToMilli(uint32_t clock)
+{
+	uint32_t clockHz = 46875000;
+	uint32_t clocksPerMs = clockHz / 1000;
+
+	return clock / clocksPerMs;
+}
+
+uint32_t ClockToMicro(uint32_t clock)
+{
+	uint32_t clockHz = 46875000;
+	uint32_t clocksPerMicro = clockHz / 1000000;
+
+	return clock / clocksPerMicro;
+}
+
 uint32_t GetDeltaTime()
 {
 	return __deltaTime;

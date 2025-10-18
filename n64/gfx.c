@@ -10,41 +10,6 @@
 #include "gfx.h"
 
 
-float __gfxPositionOffsetX = 0;
-float __gfxPositionOffsetY = 0;
-float __gfxPositionOffsetZ = 0;
-
-vec3_t __lights[] = {
-	{2, 0, -5},
-};
-
-debugtriangle_t __debugTriangles[1024];
-uint32_t __debugTriangleCount = 0;
-
-
-void GFX_SetPosition(float x, float y, float z)
-{
-	__gfxPositionOffsetX = x;
-	__gfxPositionOffsetY = y;
-	__gfxPositionOffsetZ = z;
-}
-
-// bool GFX_ClipTriangle(vec4_t clip0, vec4_t clip1, vec4_t clip2)
-// {
-// 	if (
-// 		(clip0.x < -1.0f && clip1.x < -1.0f && clip2.x < -1.0f) ||
-// 		(clip0.x > +1.0f && clip1.x > +1.0f && clip2.x > +1.0f) ||
-// 		(clip0.y < -1.0f && clip1.y < -1.0f && clip2.y < -1.0f) ||
-// 		(clip0.y > +1.0f && clip1.y > +1.0f && clip2.y > +1.0f) ||
-// 		(clip0.z < +0.0f && clip1.z < +0.0f && clip2.z < +0.0f) ||
-// 		(clip0.z > +1.0f && clip1.z > +1.0f && clip2.z > +1.0f)
-// 	) {
-// 		return 0;
-// 	}
-
-// 	return 1;
-// }
-
 typedef struct {
 	rdp_vertex_t outVertices[16];
 	rdp_vertex_t inVertices[16];
@@ -59,6 +24,26 @@ plane_t planeY0 = {0, +1, 0};
 plane_t planeY1 = {0, -1, 0};
 plane_t planeZ0 = {0, 0, +1};
 plane_t planeZ1 = {0, 0, -1};
+
+float __gfxPositionOffsetX = 0;
+float __gfxPositionOffsetY = 0;
+float __gfxPositionOffsetZ = 0;
+
+vec3_t __lights[1];
+
+debugtriangle_t __debugTriangles[1024];
+uint32_t __debugTriangleCount = 0;
+
+float __debugSmallestW;
+// int __debugNumTriangles;
+
+
+void GFX_SetPosition(float x, float y, float z)
+{
+	__gfxPositionOffsetX = x;
+	__gfxPositionOffsetY = y;
+	__gfxPositionOffsetZ = z;
+}
 
 float GFX_ClipPlaneDist(vec4_t pos, plane_t plane)
 {
@@ -223,8 +208,6 @@ void GFX_DrawTriangleClip(rdp_vertex_t v0, rdp_vertex_t v1, rdp_vertex_t v2)
 	// DrawStrBG(10, 10, "num vertices %i", numVertices);
 }
 
-float __debugSmallestW;
-
 vec3_t GFX_VertexLight(rdp_vertex_t v)
 {
 	// vec3_t highEdge = sub3(v1.pos.xyz, v0.pos.xyz);
@@ -321,4 +304,28 @@ void GFX_DrawQuadBuffer(rdp_vertex_t* vertices, int num)
 		GFX_DrawTriangle3D(vertices[idx+0], vertices[idx+1], vertices[idx+2]);
 		GFX_DrawTriangle3D(vertices[idx+0], vertices[idx+2], vertices[idx+3]);
 	}
+}
+
+void BlitPixel3D(vec3_t pos, uint16_t color)
+{
+	mat4_t mat = PerspectiveMatrix(90, 320.0f/288.0f, 0.1f, 100.0f);
+	vec4_t clip = Vec4MulMat4(vec4(pos.x, pos.y, pos.z, 1), mat);
+	
+	float d0 = GFX_ClipPlaneDist(clip, planeX0);
+	float d1 = GFX_ClipPlaneDist(clip, planeX1);
+	float d2 = GFX_ClipPlaneDist(clip, planeY0);
+	float d3 = GFX_ClipPlaneDist(clip, planeY1);
+	float d4 = GFX_ClipPlaneDist(clip, planeZ0);
+	float d5 = GFX_ClipPlaneDist(clip, planeZ1);
+	if (d0<0 || d1<0 || d2<0 || d3<0 || d4<0 || d5<0) {
+		return;
+	}
+
+	// v0.pos = vec4(divsafe(clip0.x, clip0.w), divsafe(clip0.y, clip0.w), divsafe(clip0.z, clip0.w), clip0.w);
+	float x = clip.x / clip.w;
+	float y = clip.y / clip.w;
+	x = (+x*0.5f + 0.5f) * 320.0f;
+	y = (-y*0.5f + 0.5f) * 288.0f;
+
+	BlitPixel(x, y, color);
 }
